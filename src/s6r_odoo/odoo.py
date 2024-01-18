@@ -140,22 +140,30 @@ class OdooConnection:
             xml_id = "external_config." + xml_id
         try:
             object_reference = self._get_xmlrpc_method('get_object_reference')
-            return self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=True)[1]
-        except Exception as e:  # TODO : get true exception type and return False
+            res = self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
+            return res[1] if res else False
+        except xmlrpc.client.Fault as fault:
+            if no_raise:
+                pass
+            raise ValueError(fault.faultString.strip().split('\n')[-1])
+        except Exception as err:
             if no_raise:
                 pass
             else:
-                raise e
+                raise err
 
     def get_xml_id_from_id(self, model, res_id):
         try:
             domain = [('model', '=', model), ('res_id', '=', res_id)]
             res = self.execute_odoo('ir.model.data', 'search_read', [domain, ['module', 'name'], 0, 0, "id"],
-                                    {'context': self._context})[0]
-            return "%s.%s" % (res['module'], res['name'])
-        except Exception as e:  # TODO : get true exception type and return False
-            raise e
-            # return False
+                                    {'context': self._context})
+            if res:
+                datas = res[0]
+                return "%s.%s" % (datas['module'], datas['name'])
+            else:
+                raise ValueError('xml_id not found.')
+        except Exception as err:
+            raise err
 
     def set_active(self, is_active, model, domain, search_value_xml_id):
         if search_value_xml_id:
