@@ -1,6 +1,9 @@
 import base64
+from datetime import datetime
 import logging
 import ssl
+import os
+import sys
 import xmlrpc.client
 from pprint import pformat
 
@@ -29,6 +32,7 @@ class OdooConnection:
         self._http_user = http_user
         self._http_password = http_password
         self._version = version
+        self._debug_xmlrpc = debug_xmlrpc
         # noinspection PyProtectedMember,PyUnresolvedReferences
         self._insecure_context = ssl._create_unverified_context()
         self._compute_url()
@@ -52,6 +56,16 @@ class OdooConnection:
                     if i[0] == method:
                         new_method = i[1]
         return new_method
+
+    def init_logger(self, name='s6r-odoo', level='INFO'):
+        root_logger = logging.getLogger()
+        root_logger.setLevel(level)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(f'%(asctime)s - {name} - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
+        self.logger = root_logger
 
     def _create_db(self):
         post = {
@@ -112,8 +126,7 @@ class OdooConnection:
         self.logger.debug('Get ref %s > %s' % (external_id, res))
         return res
 
-    @staticmethod
-    def get_local_file(path, encode=False):
+    def get_local_file(self, path, encode=False):
         if encode:
             with open(path, "rb") as f:
                 res = f.read()
@@ -173,8 +186,7 @@ class OdooConnection:
         self.execute_odoo(model, 'write', [object_ids, {'active': is_active}], {'context': self._context})
 
     def read_search(self, model, domain, context=False):
-        res = self.execute_odoo(model, 'search_read',
-                                [domain],
+        res = self.execute_odoo(model, 'search_read', [domain],
                                 {'context': context or self._context})
         return res
 
@@ -183,10 +195,14 @@ class OdooConnection:
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         return res
 
+    def search_ids(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=False):
+        params = [domain, fields, offset, limit, order]
+        res = self.execute_odoo(model, 'search', params, {'context': context or self._context})
+        return res
+
     def get_record(self, model, rec_id, context=False):
         params = [[('id', '=', rec_id)]]
-        res = self.execute_odoo(model, 'search_read',
-                                params,
+        res = self.execute_odoo(model, 'search_read', params,
                                 {'context': context or self._context})
         if res:
             return res[0]
@@ -195,7 +211,69 @@ class OdooConnection:
         res = self.execute_odoo(model, 'default_get', [field])
         return res
 
-    def load(self, model, load_keys, load_data, config_context):
-        res = self.execute_odoo(model, 'load', [load_keys, load_data], {'context': config_context})
+    def load(self, model, load_keys, load_data, context):
+        res = self.execute_odoo(model, 'load', [load_keys, load_data], {'context': context})
         for message in res['messages']:
             self.logger.error("%s : %s" % (message['record'], message['message']))
+        return res
+
+    def load_batch(self, model, datas, batch_size=100, skip_line=0):
+        if not datas:
+            return
+        cc_max = len(datas)
+        start = datetime.now()
+
+        load_keys = list(datas[0].keys())
+        load_datas = [[]]
+        for cc, data in enumerate(datas):
+            if len(load_datas[-1]) >= batch_size:
+                load_datas.append([])
+            load_datas[-1].append([data[i] for i in load_keys])
+
+        cc = 0
+        for load_data in load_datas:
+            start_batch = datetime.now()
+            self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
+            cc += len(load_data)
+            res = self.load(model, load_keys, load_data, context=self._context)
+            for message in res['messages']:
+                if message.get('type') in ['warning', 'error']:
+                    if message.get('record'):
+                        self.logger.error("record : %s" % (message['record']))
+                    if message.get('message'):
+                        self.logger.error("message : %s" % (message['message']))
+                    raise Exception(message['message'])
+                else:
+                    self.logger.info(message)
+            stop_batch = datetime.now()
+            self.logger.info("\t\t\tBatch time %s ( %sms per object)" % (
+                stop_batch - start_batch, ((stop_batch - start_batch) / len(load_data)).microseconds / 1000))
+        stop = datetime.now()
+        self.logger.info("\t\t\tTotal time %s" % (stop - start))
+
+    def create(self, model, values, context=False):
+        params = [values] if isinstance(values, dict) else values
+        res = self.execute_odoo(model, 'create', params,  {'context': context or self._context})
+        return res
+
+    def unlink(self, model, values, context=False):
+        return self.execute_odoo(model, 'unlink', [values],  {'context': context or self._context})
+
+    def unlink_domain(self, model, domain, context=False):
+        values = self.search_ids(model, domain)
+        return self.unlink(model, values, context)
+
+    def create_attachment(self, name, datas, res_model, res_id=False, context=False):
+        values = {
+                    'name': name,
+                    'datas': datas,
+                    'res_model': res_model}
+        if res_id:
+            values['res_id'] = res_id
+        return self.create('ir.attachment', values,  context)
+
+    def create_attachment_from_local_file(self, file_path, res_model, res_id=False,
+                                          name=False, encode=False, context=False):
+        datas = self.get_local_file(file_path, encode)
+        file_name = name or os.path.basename(file_path)
+        return self.create_attachment(file_name, datas, res_model, res_id, context)
