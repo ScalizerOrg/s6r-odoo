@@ -1,3 +1,6 @@
+# Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
+# License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
+
 import base64
 from datetime import datetime
 import logging
@@ -9,6 +12,8 @@ from pprint import pformat
 
 import requests
 from bs4 import BeautifulSoup
+
+from .model import OdooModel
 
 METHODE_MAPPING = {
     15: [('get_object_reference', 'check_object_reference')]
@@ -43,6 +48,9 @@ class OdooConnection:
     @property
     def context(self):
         return self._context
+
+    def model(self, model_name):
+        return OdooModel(self, model_name)
 
     def _compute_url(self):
         if self._http_user or self._http_password:
@@ -190,13 +198,27 @@ class OdooConnection:
                                 {'context': context or self._context})
         return res
 
+    def search_count(self, model, domain, context=False):
+        res = self.execute_odoo(model, 'search_count', [domain],
+                                {'context': context or self._context})
+        return res
+
+    def read(self, model, ids, fields, context=False):
+        return self.execute_odoo(model, 'read_group', [ids, fields],
+                                 {'context': context or self._context})
+
+    def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=False):
+        res = self.execute_odoo(model, 'read_group', [domain, fields, groupby, offset, limit, orderby, lazy],
+                                {'context': context or self._context})
+        return res
+
     def search(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=False):
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         return res
 
-    def search_ids(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=False):
-        params = [domain, fields, offset, limit, order]
+    def search_ids(self, model, domain=[], order=[], offset=0, limit=0, context=False):
+        params = [domain, offset, limit, order]
         res = self.execute_odoo(model, 'search', params, {'context': context or self._context})
         return res
 
@@ -212,7 +234,7 @@ class OdooConnection:
         return res
 
     def load(self, model, load_keys, load_data, context):
-        res = self.execute_odoo(model, 'load', [load_keys, load_data], {'context': context})
+        res = self.execute_odoo(model, 'load', [load_keys, load_data], {'context': context or self._context})
         for message in res['messages']:
             self.logger.error("%s : %s" % (message['record'], message['message']))
         return res
