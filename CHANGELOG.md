@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Introduce the new class OdooModel to use syntax such:
 ```python
 m_order = odoo_cli.model('sale.order')
-order_ids = m_order.search(['partner_id', '=', 5])
+order_ids = m_order.search([('partner_id', '=', 5)])
 ```
 
  - Add methods:
