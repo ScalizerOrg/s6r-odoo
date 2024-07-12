@@ -65,3 +65,9 @@ class OdooModel(object):
 
     def create_attachment_from_local_file(self, file_path, res_id=False, name=False, encode=False, context=False):
         return self.odoo.create_attachment_from_local_file(file_path, self.model_name, res_id, name, encode, context)
+
+    def get_id_ref_dict(self):
+        return self.odoo.get_id_ref_dict(self.model_name)
+
+    def get_xmlid_dict(self):
+        return self.odoo.get_xmlid_dict(self.model_name)

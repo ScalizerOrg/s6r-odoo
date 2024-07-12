@@ -299,3 +299,11 @@ class OdooConnection:
         datas = self.get_local_file(file_path, encode)
         file_name = name or os.path.basename(file_path)
         return self.create_attachment(file_name, datas, res_model, res_id, context)
+
+    def get_id_ref_dict(self, model):
+        model_datas = self.search('ir.model.data', [('model', '=', model)])
+        return dict([(data['res_id'], '%s.%s' % (data['module'], data['name'])) for data in model_datas])
+
+    def get_xmlid_dict(self, model):
+        model_datas = self.search('ir.model.data', [('model', '=', model)])
+        return dict([('%s.%s' % (data['module'], data['name']), data['res_id']) for data in model_datas])
