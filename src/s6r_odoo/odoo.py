@@ -104,10 +104,27 @@ class OdooConnection:
         self.object = xmlrpc.client.ServerProxy('{}/xmlrpc/2/object'.format(self._url), allow_none=True,
                                                 context=self._insecure_context)
         self.logger.info("==============")
-        self.uid = self.common.authenticate(self._dbname, self._user, self._password, {})
+        try:
+            self.uid = self.common.authenticate(self._dbname, self._user, self._password, {})
+        except xmlrpc.client.Fault as err:
+            if 'FATAL:' in err.faultString:
+                msg = err.faultString[err.faultString.find('FATAL:') + 6:].strip()
+                self.logger.error(msg)
+                raise ConnectionError(msg)
+            raise err
+        except xmlrpc.client.ProtocolError as err:
+            msg = f'{err.url} {err.errmsg} ({err.errcode})'
+            self.logger.error(msg)
+            raise ConnectionError(msg)
+        except Exception as err:
+            self.logger.error(err)
+            raise
+
         self.logger.debug('Connection uid : %s' % self.uid)
         if not self.uid:
-            raise Exception("Connection Error to %s %s %s" % (self._url, self._dbname, self._user))
+            msg = f'Connection Error to {self._url} {self._dbname}. Check "{self._user}" username and password.'
+            self.logger.error(msg)
+            raise ConnectionError(msg)
 
     def execute_odoo(self, *args, no_raise=False):
         self.logger.debug("*" * 50)
