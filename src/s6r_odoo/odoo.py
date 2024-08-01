@@ -203,43 +203,47 @@ class OdooConnection:
         except Exception as err:
             raise err
 
+    def write(self, model, ids, values, context=None):
+        return self.execute_odoo(model, 'write', [ids, values],
+                                 {'context': context or self._context})
+
     def set_active(self, is_active, model, domain, search_value_xml_id):
         if search_value_xml_id:
             object_id = self.get_id_from_xml_id(search_value_xml_id)
             domain = [(domain[0][0], domain[0][1], object_id)]
-        object_ids = self.execute_odoo(model, 'search', [domain, 0, 0, "id", False], {'context': self._context})
-        self.execute_odoo(model, 'write', [object_ids, {'active': is_active}], {'context': self._context})
+        object_ids = self.search_ids(model, domain, context=self._context)
+        self.write(model, object_ids, {'active': is_active})
 
-    def read_search(self, model, domain, context=False):
+    def read_search(self, model, domain, context=None):
         res = self.execute_odoo(model, 'search_read', [domain],
                                 {'context': context or self._context})
         return res
 
-    def search_count(self, model, domain, context=False):
+    def search_count(self, model, domain, context=None):
         res = self.execute_odoo(model, 'search_count', [domain],
                                 {'context': context or self._context})
         return res
 
-    def read(self, model, ids, fields, context=False):
+    def read(self, model, ids, fields, context=None):
         return self.execute_odoo(model, 'read_group', [ids, fields],
                                  {'context': context or self._context})
 
-    def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=False):
+    def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         res = self.execute_odoo(model, 'read_group', [domain, fields, groupby, offset, limit, orderby, lazy],
                                 {'context': context or self._context})
         return res
 
-    def search(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=False):
+    def search(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         return res
 
-    def search_ids(self, model, domain=[], order=[], offset=0, limit=0, context=False):
+    def search_ids(self, model, domain=[], order=[], offset=0, limit=0, context=None):
         params = [domain, offset, limit, order]
         res = self.execute_odoo(model, 'search', params, {'context': context or self._context})
         return res
 
-    def get_record(self, model, rec_id, context=False):
+    def get_record(self, model, rec_id, context=None):
         params = [[('id', '=', rec_id)]]
         res = self.execute_odoo(model, 'search_read', params,
                                 {'context': context or self._context})
@@ -290,19 +294,19 @@ class OdooConnection:
         stop = datetime.now()
         self.logger.info("\t\t\tTotal time %s" % (stop - start))
 
-    def create(self, model, values, context=False):
+    def create(self, model, values, context=None):
         params = [values] if isinstance(values, dict) else values
         res = self.execute_odoo(model, 'create', params,  {'context': context or self._context})
         return res
 
-    def unlink(self, model, values, context=False):
+    def unlink(self, model, values, context=None):
         return self.execute_odoo(model, 'unlink', [values],  {'context': context or self._context})
 
-    def unlink_domain(self, model, domain, context=False):
+    def unlink_domain(self, model, domain, context=None):
         values = self.search_ids(model, domain)
         return self.unlink(model, values, context)
 
-    def create_attachment(self, name, datas, res_model, res_id=False, context=False):
+    def create_attachment(self, name, datas, res_model, res_id=False, context=None):
         values = {
                     'name': name,
                     'datas': datas,
@@ -312,7 +316,7 @@ class OdooConnection:
         return self.create('ir.attachment', values,  context)
 
     def create_attachment_from_local_file(self, file_path, res_model, res_id=False,
-                                          name=False, encode=False, context=False):
+                                          name=False, encode=False, context=None):
         datas = self.get_local_file(file_path, encode)
         file_name = name or os.path.basename(file_path)
         return self.create_attachment(file_name, datas, res_model, res_id, context)
