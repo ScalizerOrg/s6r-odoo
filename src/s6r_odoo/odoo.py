@@ -225,7 +225,7 @@ class OdooConnection:
         return res
 
     def read(self, model, ids, fields, context=None):
-        return self.execute_odoo(model, 'read_group', [ids, fields],
+        return self.execute_odoo(model, 'read', [ids, fields],
                                  {'context': context or self._context})
 
     def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
