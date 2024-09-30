@@ -328,3 +328,6 @@ class OdooConnection:
     def get_xmlid_dict(self, model):
         model_datas = self.search('ir.model.data', [('model', '=', model)])
         return dict([('%s.%s' % (data['module'], data['name']), data['res_id']) for data in model_datas])
+
+    def get_fields(self, model, fields=[]):
+        return self.execute_odoo(model, 'fields_get', [], {'allfields': fields, 'attributes': ['string', 'help', 'type']})
