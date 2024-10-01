@@ -233,12 +233,12 @@ class OdooConnection:
                                 {'context': context or self._context})
         return res
 
-    def search(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
+    def search(self, model, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         return res
 
-    def search_ids(self, model, domain=[], order=[], offset=0, limit=0, context=None):
+    def search_ids(self, model, domain=[], order="", offset=0, limit=0, context=None):
         params = [domain, offset, limit, order]
         res = self.execute_odoo(model, 'search', params, {'context': context or self._context})
         return res

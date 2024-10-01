@@ -33,10 +33,10 @@ class OdooModel(object):
     def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         return self.odoo.read_group(self.model_name, domain, fields, groupby, offset, limit, orderby, lazy, context)
 
-    def search(self, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
+    def search(self, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         return self.odoo.search(self.model_name, domain, fields, order, offset, limit, context)
 
-    def search_ids(self, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
+    def search_ids(self, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         return self.odoo.search_ids(self.model_name, domain, fields, order, offset, limit, context)
 
     def get_record(self, rec_id, context=None):
