@@ -260,7 +260,7 @@ class OdooConnection:
             self.logger.error("%s : %s" % (message['record'], message['message']))
         return res
 
-    def load_batch(self, model, datas, batch_size=100, skip_line=0):
+    def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None):
         if not datas:
             return
         cc_max = len(datas)
@@ -278,7 +278,7 @@ class OdooConnection:
             start_batch = datetime.now()
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
-            res = self.load(model, load_keys, load_data, context=self._context)
+            res = self.load(model, load_keys, load_data, context={'context': context or self._context})
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
