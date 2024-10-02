@@ -74,3 +74,6 @@ class OdooModel(object):
 
     def get_xmlid_dict(self):
         return self.odoo.get_xmlid_dict(self.model_name)
+
+    def get_fields(self, fields):
+        return self.get_fields(self.model_name, fields)
