@@ -283,7 +283,7 @@ class OdooConnection:
             start_batch = datetime.now()
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
-            res = self.load(model, load_keys, load_data, context=context)
+            res = self.load(model, load_keys, load_data, context=self.context | context)
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
