@@ -14,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .model import OdooModel
+from .record import OdooRecord
 
 METHODE_MAPPING = {
     15: [('get_object_reference', 'check_object_reference')]
@@ -22,9 +23,10 @@ METHODE_MAPPING = {
 
 class OdooConnection:
     _context = {'lang': 'fr_FR', 'noupdate': True}
+    _models = {}
 
     def __init__(self, url, dbname, user, password, version=15.0, http_user=None, http_password=None, createdb=False,
-                 debug_xmlrpc=False):
+                 debug_xmlrpc=False, legacy=False):
         self.logger = logging.getLogger("Odoo Connection".ljust(15))
         if debug_xmlrpc:
             self.logger.setLevel(logging.DEBUG)
@@ -37,6 +39,7 @@ class OdooConnection:
         self._http_user = http_user
         self._http_password = http_password
         self._version = version
+        self._legacy = legacy
         self._debug_xmlrpc = debug_xmlrpc
         # noinspection PyProtectedMember,PyUnresolvedReferences
         self._insecure_context = ssl._create_unverified_context()
@@ -45,12 +48,19 @@ class OdooConnection:
             self._create_db()
         self._prepare_connection()
 
+    def __str__(self):
+        return 'OdooConnection(%s)' % self._dbname
+
     @property
     def context(self):
         return self._context
 
     def model(self, model_name):
-        return OdooModel(self, model_name)
+        if model_name in self._models:
+            return self._models[model_name]
+        res = OdooModel(self, model_name)
+        self._models[model_name] = res
+        return res
 
     def _compute_url(self):
         if self._http_user or self._http_password:
@@ -144,6 +154,13 @@ class OdooConnection:
                 self.logger.error(e)
                 raise e
 
+    def values_list_to_records(self, model_name, val_list):
+        if self._legacy:
+            return val_list
+        records = [OdooRecord(self, self.model(model_name), values) for values in val_list]
+        # self._models[model_name]._cache.update({r.id: r for r in records})
+        return records
+
     def get_ref(self, external_id):
         res = \
             self.execute_odoo('ir.model.data', self._get_xmlrpc_method('get_object_reference'), external_id.split('.'))[
@@ -224,9 +241,14 @@ class OdooConnection:
                                 {'context': context or self._context})
         return res
 
-    def read(self, model, ids, fields, context=None):
-        return self.execute_odoo(model, 'read', [ids, fields],
+    def _read(self, model, ids, fields, context=None):
+        param_ids = [ids] if isinstance(ids, int) else ids
+        return self.execute_odoo(model, 'read', [param_ids, fields],
                                  {'context': context or self._context})
+
+    def read(self, model, ids, fields, context=None):
+        res =  self._read(model, ids, fields, context)
+        return self.values_list_to_records(model, res)
 
     def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         res = self.execute_odoo(model, 'read_group', [domain, fields, groupby, offset, limit, orderby, lazy],
@@ -236,7 +258,7 @@ class OdooConnection:
     def search(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
-        return res
+        return self.values_list_to_records(model, res)
 
     def search_ids(self, model, domain=[], order=[], offset=0, limit=0, context=None):
         params = [domain, offset, limit, order]
@@ -329,5 +351,9 @@ class OdooConnection:
         model_datas = self.search('ir.model.data', [('model', '=', model)])
         return dict([('%s.%s' % (data['module'], data['name']), data['res_id']) for data in model_datas])
 
-    def get_fields(self, model, fields=[]):
-        return self.execute_odoo(model, 'fields_get', [], {'allfields': fields, 'attributes': ['string', 'help', 'type']})
+    def get_fields(self, model, fields=None, attribute_list=None):
+        params = [fields or []]
+        if attribute_list:
+            params.append(attribute_list)
+
+        return self.execute_odoo(model, 'fields_get', params)
