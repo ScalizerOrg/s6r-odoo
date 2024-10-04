@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.9] - 2024-10-02
+### Added
+ - "load_batch" method
+   - added "context" keyword to stay consistent with other methods
+   - added "ignored_fields" keyword to remove specific keys from data to be loaded
+### Fixed
+ - "search", "search_ids" methods
+   - to improve clarity: replaced empty list by empty string in "order" keyword default values, as the expected type is a string and sending a list raises an error
 
 ## [1.0.8] - 2024-09-30
 
