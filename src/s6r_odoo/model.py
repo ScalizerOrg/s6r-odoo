@@ -21,13 +21,18 @@ class OdooModel(object):
     def __repr__(self):
         return self.model_name
 
+    def _update_cache(self,record_id, values):
+        self._cache[record_id] = values
+
+    def values_to_record(self, values, update_cache=True):
+        return self._odoo.values_to_record(self.model_name, values, update_cache)
+
+    def _get_cache(self, record_id):
+        if record_id in self._cache:
+            return self.values_to_record(self._cache.get(record_id), update_cache=False)
+
     def execute(self, *args, no_raise=False):
         return self._odoo.execute_odoo(self.model_name, args[0], args[1:], no_raise=no_raise)
-
-    # def values_list_to_records(self, val_list):
-    #     if self._odoo._legacy:
-    #         return val_list
-    #     return [OdooRecord(self._odoo, self, values) for values in val_list]
 
     def search_get_id(self, domain):
         return self._odoo.get_search_id(self.model_name, domain)
@@ -35,9 +40,25 @@ class OdooModel(object):
     def get_xml_id_from_id(self, xml_id):
         return self._odoo.get_xml_id_from_id(self.model_name, xml_id)
 
-    def read(self, ids, fields, context=None):
+    def read(self, ids, fields=None, context=None, no_cache=False):
+        if not ids:
+            return []
+        if not fields:
+            fields = self.get_fields_list()
+        if isinstance(ids, int):
+            cache_values = self._get_cache(ids)
+            if cache_values:
+                return cache_values
+            else:
+                values = self._odoo.read(self.model_name, [ids], fields, context)[0]
+                # self._update_cache(ids, values)
+                return values
+
         return self._odoo.read(self.model_name, ids, fields, context)
-        # return self.values_list_to_records(res)
+
+
+    def _read(self, ids, fields=None, context=None, no_cache=False):
+        return self._odoo._read(self.model_name, ids, fields, context)
 
     def read_search(self, domain, context=None):
         return self._odoo.read_search(self.model_name, domain, context)

@@ -1,15 +1,19 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
+from apt.auth import update
+from cups import modelSort
 
 
 class OdooRecord(object):
     _odoo = None
     _model = None
-    _values = {}
     _field = ''
     _parent_model = None
 
     def __init__(self, odoo, model, values: dict, field='', parent_model=None):
+        self._values = {}
+        self._updated_values = {}
+        self._initialized_fields = []
         self._odoo = odoo
         self.id = False
         if model:
@@ -19,8 +23,8 @@ class OdooRecord(object):
             self._field = field
         if parent_model:
             self._parent_model = parent_model
-        self._values = values
-        self._init_values()
+
+        self.set_values(values, update_cache=False)
 
     def __str__(self):
         if self._model:
@@ -41,13 +45,41 @@ class OdooRecord(object):
         else:
             return False
 
+    def __getitem__(self, key):
+        return getattr(self, key)
 
-    def _init_values(self):
-        self.set_values(self._values)
+    def __getattr__(self, name):
+        if name.startswith('_'):
+            return self.super().__getattr__(name)
+        if not self._model:
+            return self.super().__getattr__(name)
+        if name not in self._values:
+            if not self._model._fields_loaded:
+                self._model.load_fields_description()
+            if  name in self._model._fields:
+                self.read([name])
+                return getattr(self, name)
+            raise AttributeError("Attribute '%s' not found in model '%s'" % (name, self._model))
 
-    def set_values(self, values):
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            return super().__setattr__(name, value)
+        if name in self._values and name in self._initialized_fields and value != self._values[name]:
+            self._updated_values[name] = value
+            return super().__setattr__(name, value)
+        else:
+            res = super().__setattr__(name, value)
+            self._initialized_fields.append(name)
+            return res
+
+    def _update_cache(self):
         if self._model:
-            self._odoo._models[self._model.model_name]._cache[values['id']] = values
+            self._model._update_cache(self._values['id'], self._values)
+
+    def set_values(self, values, update_cache=True):
+        self._values.update(values)
+        if self._model and update_cache:
+            self._update_cache()
         for key in values:
             value = values[key]
             if isinstance(value, list) and len(value) == 2:
@@ -55,16 +87,41 @@ class OdooRecord(object):
             else:
                 setattr(self, key, value)
 
-    def read(self):
-        if not self._model:
-            field_desc = self._parent_model.load_field_description(self._field)
-            self._model = self._odoo.model(field_desc['relation'])
+    def read(self, fields=None):
+        # if not self._model:
+        #     print('Model not found')
+            # field_desc = self._parent_model.load_field_description(self._field)
+            # self._model = self._odoo.model(field_desc['relation'])
         if not self._model._fields_loaded:
             self._model.load_fields_description()
         if self.id in self._model._cache:
             res = self._model._cache[self.id]
+            # check if all fields are in res dict
+            if any(field not in res for field in fields):
+                res.update(self._read(fields))
+
             self.set_values(res)
         else:
-            res = self._odoo._read(self._model.model_name, self.id, self._model.get_fields_list())
+            if not fields:
+                fields = self._model.get_fields_list()
+            res = self._read(fields)
             if res:
-                self.set_values(res[0])
+                self.set_values(res)
+
+    def _read(self, fields):
+        res = self._model._read(self.id, fields)
+        if res:
+            return res[0]
+
+    def save(self):
+        if self.id:
+            self._model.write(self.id, self._updated_values)
+            self._updated_values = {}
+        else:
+            self.id = self._odoo._create(self._model.model_name, self._values)
+            self._initialized_fields = list(self._values.keys())
+
+    def write(self, values):
+        self._model.write(self.id, values)
+        self._values.update(values)
+        self.__dict__.update(values)

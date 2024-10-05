@@ -24,10 +24,12 @@ METHODE_MAPPING = {
 class OdooConnection:
     _context = {'lang': 'fr_FR', 'noupdate': True}
     _models = {}
+    query_count = 0
+    method_count = {}
 
     def __init__(self, url, dbname, user, password, version=15.0, http_user=None, http_password=None, createdb=False,
-                 debug_xmlrpc=False, legacy=False):
-        self.logger = logging.getLogger("Odoo Connection".ljust(15))
+                 debug_xmlrpc=False, legacy=False, logger=None):
+        self.logger = logger or logging.getLogger("Odoo Connection".ljust(15))
         if debug_xmlrpc:
             self.logger.setLevel(logging.DEBUG)
         else:
@@ -137,10 +139,20 @@ class OdooConnection:
             raise ConnectionError(msg)
 
     def execute_odoo(self, *args, no_raise=False):
+        model = args[0]
+        method = args[1]
+        self.query_count += 1
+        if method not in self.method_count:
+            self.method_count[method] = {model: 1}
+        else:
+            if model not in self.method_count[method]:
+                self.method_count[method][model] = 1
+            else:
+                self.method_count[method][model] += 1
         self.logger.debug("*" * 50)
         self.logger.debug("Execute odoo :")
-        self.logger.debug("\t Model : %s" % (args[0]))
-        self.logger.debug("\t Method : %s" % (args[1]))
+        self.logger.debug("\t Model : %s" % model)
+        self.logger.debug("\t Method : %s" % method)
         self.logger.debug("\t " + "%s " * (len(args) - 2) % args[2:])
         self.logger.debug("*" * 50)
         try:
@@ -153,18 +165,20 @@ class OdooConnection:
                 self.logger.error(pformat(args))
                 self.logger.error(e)
                 raise e
+    def values_to_record(self, model_name, values, update_cache=True):
+        record = OdooRecord(self, self.model(model_name), values)
+        if update_cache:
+            self._models[model_name]._update_cache(record.id, values)
+        return record
 
-    def values_list_to_records(self, model_name, val_list):
+    def values_list_to_records(self, model_name, val_list, update_cache=True):
         if self._legacy:
             return val_list
-        records = [OdooRecord(self, self.model(model_name), values) for values in val_list]
-        # self._models[model_name]._cache.update({r.id: r for r in records})
+        records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
         return records
 
     def get_ref(self, external_id):
-        res = \
-            self.execute_odoo('ir.model.data', self._get_xmlrpc_method('get_object_reference'), external_id.split('.'))[
-                1]
+        res = self.get_object_reference(external_id)[1]
         self.logger.debug('Get ref %s > %s' % (external_id, res))
         return res
 
@@ -190,12 +204,17 @@ class OdooConnection:
     def get_search_id(self, model, domain):
         return self.execute_odoo(model, 'search', [domain, 0, 1, "id", False], {'context': self._context})[0]
 
+
+    def get_object_reference(self, xml_id, no_raise=False):
+        object_reference = self._get_xmlrpc_method('get_object_reference')
+        return self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
+
     def get_id_from_xml_id(self, xml_id, no_raise=False):
         if '.' not in xml_id:
             xml_id = "external_config." + xml_id
         try:
-            object_reference = self._get_xmlrpc_method('get_object_reference')
-            res = self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
+
+            res = self.get_object_reference(xml_id, no_raise=no_raise)
             return res[1] if res else False
         except xmlrpc.client.Fault as fault:
             if no_raise:
@@ -206,6 +225,11 @@ class OdooConnection:
                 pass
             else:
                 raise err
+
+    def ref(self, ixml_id, no_raise=False):
+        object_reference = self.get_object_reference(ixml_id, no_raise=no_raise)
+        if len(object_reference) == 2:
+            return self.model(object_reference[0]).read(object_reference[1])
 
     def get_xml_id_from_id(self, model, res_id):
         try:
@@ -348,10 +372,13 @@ class OdooConnection:
         return dict([(data['res_id'], '%s.%s' % (data['module'], data['name'])) for data in model_datas])
 
     def get_xmlid_dict(self, model):
-        model_datas = self.search('ir.model.data', [('model', '=', model)])
-        return dict([('%s.%s' % (data['module'], data['name']), data['res_id']) for data in model_datas])
+        model_datas = self.search('ir.model.data', [('model', '=', model)],
+                                  fields=['res_id', 'module', 'name'])
+        return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
 
     def get_fields(self, model, fields=None, attribute_list=None):
+        if model in self._models and self._models[model]._fields and not fields and not attribute_list:
+            return self._models[model]._fields
         params = [fields or []]
         if attribute_list:
             params.append(attribute_list)
