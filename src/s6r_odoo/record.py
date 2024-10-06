@@ -1,7 +1,5 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
-from apt.auth import update
-from cups import modelSort
 
 
 class OdooRecord(object):
@@ -39,14 +37,16 @@ class OdooRecord(object):
                 return "%s(%s)" % (self._field, self.name)
         return str(self._values)
 
+    def __repr__(self):
+        return str(self)
+
     def __bool__(self):
         if hasattr(self, 'id'):
             return bool(self.id)
-        else:
-            return False
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        if isinstance(key, str):
+            return getattr(self, key)
 
     def __getattr__(self, name):
         if name.startswith('_'):
@@ -87,14 +87,14 @@ class OdooRecord(object):
             else:
                 setattr(self, key, value)
 
-    def read(self, fields=None):
+    def read(self, fields=None, no_cache=False):
         # if not self._model:
         #     print('Model not found')
             # field_desc = self._parent_model.load_field_description(self._field)
             # self._model = self._odoo.model(field_desc['relation'])
         if not self._model._fields_loaded:
             self._model.load_fields_description()
-        if self.id in self._model._cache:
+        if self.id in self._model._cache and not no_cache:
             res = self._model._cache[self.id]
             # check if all fields are in res dict
             if any(field not in res for field in fields):
@@ -125,3 +125,6 @@ class OdooRecord(object):
         self._model.write(self.id, values)
         self._values.update(values)
         self.__dict__.update(values)
+
+    def refresh(self):
+        self.read(self._initialized_fields, no_cache=True)

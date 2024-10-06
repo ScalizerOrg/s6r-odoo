@@ -1,30 +1,33 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
 
-from .record import OdooRecord
 
 class OdooModel(object):
 
     _fields_loaded = False
     _fields = {}
     _cache = {}
+    _xmlid_cache = {}
 
     def __init__(self, odoo, model_name):
         self.model_name = model_name
         self._odoo = odoo
         self._cache = {}
         self._fields = {}
+        self._xmlid_cache = {}
 
     def __str__(self):
         return self.model_name
 
     def __repr__(self):
-        return self.model_name
+        return str(self)
 
     def _update_cache(self,record_id, values):
         self._cache[record_id] = values
 
     def values_to_record(self, values, update_cache=True):
+        if update_cache:
+            self._update_cache(values['id'], values)
         return self._odoo.values_to_record(self.model_name, values, update_cache)
 
     def _get_cache(self, record_id):
@@ -46,13 +49,14 @@ class OdooModel(object):
         if not fields:
             fields = self.get_fields_list()
         if isinstance(ids, int):
-            cache_values = self._get_cache(ids)
-            if cache_values:
-                return cache_values
-            else:
-                values = self._odoo.read(self.model_name, [ids], fields, context)[0]
-                # self._update_cache(ids, values)
-                return values
+            if not no_cache:
+                cache_record = self._get_cache(ids)
+                if cache_record:
+                    return cache_record
+
+            record = self._odoo.read(self.model_name, [ids], fields, context)[0]
+            if record:
+                return record
 
         return self._odoo.read(self.model_name, ids, fields, context)
 
@@ -130,3 +134,25 @@ class OdooModel(object):
     def get_fields_list(self):
         self.load_fields_description()
         return list(self._fields.keys())
+
+    def get_ir_model_data(self):
+        ir_model_datas = self._odoo.get_ir_model_data(self.model_name)
+        self._xmlid_cache = ir_model_datas
+        return ir_model_datas
+
+    def _find_id_in_xmlid_cache(self, xml_id):
+        module, name = xml_id.split('.')
+        ir_model_datas = list(filter(lambda x: x.module == module and x.name == name, self._xmlid_cache))
+        if ir_model_datas:
+            return ir_model_datas[0].res_id
+
+    def _find_ref_in_xmlid_cache(self, res_id):
+        ir_model_datas = list(filter(lambda x: x.res_id == res_id, self._xmlid_cache))
+        if ir_model_datas:
+            return '{0}.{1}'.format(ir_model_datas[0].module, ir_model_datas[0].name)
+
+    # def get_xmlid_cache(self):
+    #     model_datas = self.get_ir_model_data()
+    #     self._cache_id_ref_dict = dict(
+    #         [(data['res_id'], '%s.%s' % (data['module'], data['name'])) for data in model_datas])
+    #     self._cache_xmlid_dict = dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])

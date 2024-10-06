@@ -53,6 +53,9 @@ class OdooConnection:
     def __str__(self):
         return 'OdooConnection(%s)' % self._dbname
 
+    def __repr__(self):
+        return str(self)
+
     @property
     def context(self):
         return self._context
@@ -204,10 +207,29 @@ class OdooConnection:
     def get_search_id(self, model, domain):
         return self.execute_odoo(model, 'search', [domain, 0, 1, "id", False], {'context': self._context})[0]
 
+    def search_ir_model_data(self, domain):
+        return self.model('ir.model.data').search(domain,
+                                                  fields=['module', 'name', 'model', 'res_id'],
+                                                  order='id')
 
-    def get_object_reference(self, xml_id, no_raise=False):
+    def get_object_reference_legacy(self, xml_id, no_raise=False):
         object_reference = self._get_xmlrpc_method('get_object_reference')
         return self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
+
+
+    def get_object_reference(self, xml_id, no_raise=False):
+        if self._legacy:
+            return self.get_object_reference_legacy(xml_id, no_raise=no_raise)
+
+        ref = self._get_object_reference_cache(xml_id)
+        if ref:
+            return ref
+        module, name = xml_id.split('.')
+        domain = [('module', '=', module), ('name', '=', name)]
+        res = self.search_ir_model_data(domain)
+        if res:
+            ir_model_data_id = res[0]
+            return [ir_model_data_id.model, ir_model_data_id.res_id]
 
     def get_id_from_xml_id(self, xml_id, no_raise=False):
         if '.' not in xml_id:
@@ -226,16 +248,19 @@ class OdooConnection:
             else:
                 raise err
 
-    def ref(self, ixml_id, no_raise=False):
+    def ref(self, ixml_id, no_raise=False, fields=None, no_cache=False):
         object_reference = self.get_object_reference(ixml_id, no_raise=no_raise)
         if len(object_reference) == 2:
-            return self.model(object_reference[0]).read(object_reference[1])
+            model, res_id = object_reference
+            return self.model(model).read(res_id, fields=fields, no_cache=no_cache)
 
     def get_xml_id_from_id(self, model, res_id):
+        cache_xmlid = self._get_xmlid_cache(model, res_id)
+        if cache_xmlid:
+            return cache_xmlid
         try:
             domain = [('model', '=', model), ('res_id', '=', res_id)]
-            res = self.execute_odoo('ir.model.data', 'search_read', [domain, ['module', 'name'], 0, 0, "id"],
-                                    {'context': self._context})
+            res = self.search_ir_model_data(domain)
             if res:
                 datas = res[0]
                 return "%s.%s" % (datas['module'], datas['name'])
@@ -367,13 +392,26 @@ class OdooConnection:
         file_name = name or os.path.basename(file_path)
         return self.create_attachment(file_name, datas, res_model, res_id, context)
 
+    def get_ir_model_data(self, model):
+        return self.search('ir.model.data', [('model', '=', model)],
+                    fields=['module', 'name', 'model', 'res_id'])
+
     def get_id_ref_dict(self, model):
-        model_datas = self.search('ir.model.data', [('model', '=', model)])
-        return dict([(data['res_id'], '%s.%s' % (data['module'], data['name'])) for data in model_datas])
+        """
+        Returns a dict with xmlid as key and id as value
+        :param model: Model name
+        :return: {'base.module_account': 894, ...}
+        """
+        model_datas = self.get_ir_model_data(model)
+        return dict([(data.res_id, '%s.%s' % (data.module, data.name)) for data in model_datas])
 
     def get_xmlid_dict(self, model):
-        model_datas = self.search('ir.model.data', [('model', '=', model)],
-                                  fields=['res_id', 'module', 'name'])
+        """
+        Returns a dict with id as key and xmlid as value
+        :param model: Model name
+        :return: {894: 'base.module_account', ...}
+        """
+        model_datas = self.get_ir_model_data(model)
         return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
 
     def get_fields(self, model, fields=None, attribute_list=None):
@@ -384,3 +422,24 @@ class OdooConnection:
             params.append(attribute_list)
 
         return self.execute_odoo(model, 'fields_get', params)
+
+    def _get_xmlid_cache(self, model, res_id):
+        if not 'ir.model.data' in self._models:
+            return
+        cache = self._get_model_cache('ir.model.data')
+        ir_model_datas = list(filter(lambda x: x['model'] == model and x['res_id'] == res_id, cache))
+        if ir_model_datas:
+            return '{0}.{1}'.format(ir_model_datas[0]['module'], ir_model_datas[0]['name'])
+
+    def _get_object_reference_cache(self, xml_id):
+        if not 'ir.model.data' in self._models:
+            return
+        module, name = xml_id.split('.')
+        cache = self._get_model_cache('ir.model.data')
+        ir_model_datas = list(filter(lambda x: x['module'] == module and x['name'] == name, cache))
+        if ir_model_datas:
+            return [ir_model_datas[0]['model'], ir_model_datas[0]['res_id']]
+
+    def _get_model_cache(self, model):
+        cache = self._models[model]._cache
+        return [cache[res_id] for res_id in cache.keys()]
