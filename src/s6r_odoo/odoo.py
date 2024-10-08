@@ -334,5 +334,7 @@ class OdooConnection:
         model_datas = self.search('ir.model.data', [('model', '=', model)])
         return dict([('%s.%s' % (data['module'], data['name']), data['res_id']) for data in model_datas])
 
-    def get_fields(self, model, fields=[]):
-        return self.execute_odoo(model, 'fields_get', [], {'allfields': fields, 'attributes': ['string', 'help', 'type']})
+    def get_fields(self, model, fields=[], attributes=[]):
+        """get infos about the specified fields,
+        leaving the attributes keyword empty will return all attributes, commonly used ones are 'name', 'type', 'string' """
+        return self.execute_odoo(model, 'fields_get', [], {'allfields': fields, 'attributes': attributes})
