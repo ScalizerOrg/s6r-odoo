@@ -1,19 +1,25 @@
 import logging
 import time
+import random
+import string
 from s6r_odoo import OdooConnection
+
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
 
 logging.basicConfig()
 logger = logging.getLogger("test")
 odoo = OdooConnection(url='http://odoo_test.localhost',
                           dbname='odoo_test',
                           user='admin',
-                          password='admin', debug_xmlrpc=True, logger=logger)
+                          password='admin', debug_xmlrpc=False, logger=logger)
 
 def print_query_count():
     logger.info('Query count : %s', odoo.query_count)
     for method in odoo.method_count:
         logger.info('Method Count %s : %s', method, odoo.method_count[method])
-
 
 xmlid_dict = odoo.model('ir.module.module').get_xmlid_dict()
 logger.info('ir.module.module XMLIDs : %s', xmlid_dict)
@@ -35,9 +41,7 @@ logger.info(msg, module_account.display_name,
 
 odoo.get_xml_id_from_id('ir.module.module', module_account.id)
 
-
 print_query_count()
-# exit()
 
 partner_fields = odoo.execute_odoo('res.partner', 'fields_get', [['name'], None])
 country_fields = odoo.model('res.country').get_fields([])
@@ -123,5 +127,17 @@ if email1 not in partner_id3.email_formatted:
 
 partner_id.write({'email': origin_email})
 
+partner_ids = odoo.model('res.partner').search([], fields=['name', 'website'])
+for partner_id in partner_ids:
+    partner_id.website = 'https://www.%s.com' % get_random_string(8)
+partner_ids.save()
+
+partner_ids = odoo.model('res.partner').search([('name', '=', 'TO_REMOVE')], fields=['name'])
+if partner_ids:
+    partner_ids.unlink()
+
+new_partner_values_list =[{'name': "TO_REMOVE", 'website': get_random_string(8)} for i in range(50)]
+new_partner_ids = odoo.model('res.partner').create(new_partner_values_list)
+new_partner_ids.unlink()
 
 print_query_count()

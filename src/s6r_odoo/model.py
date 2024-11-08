@@ -28,7 +28,7 @@ class OdooModel(object):
     def values_to_record(self, values, update_cache=True):
         if update_cache:
             self._update_cache(values['id'], values)
-        return self._odoo.values_to_record(self.model_name, values, update_cache)
+        return self._odoo.values_to_record(self.model_name, values, update_cache=False)
 
     def _get_cache(self, record_id):
         if record_id in self._cache:

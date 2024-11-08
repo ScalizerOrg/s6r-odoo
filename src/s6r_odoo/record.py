@@ -88,10 +88,6 @@ class OdooRecord(object):
                 setattr(self, key, value)
 
     def read(self, fields=None, no_cache=False):
-        # if not self._model:
-        #     print('Model not found')
-            # field_desc = self._parent_model.load_field_description(self._field)
-            # self._model = self._odoo.model(field_desc['relation'])
         if not self._model._fields_loaded:
             self._model.load_fields_description()
         if self.id in self._model._cache and not no_cache:
@@ -128,3 +124,11 @@ class OdooRecord(object):
 
     def refresh(self):
         self.read(self._initialized_fields, no_cache=True)
+
+    def get_update_values(self):
+        values = self._updated_values
+        if self.id:
+            values['.id'] = self.id
+        else:
+            values['id'] = self.id
+        return values

@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 
 from .model import OdooModel
 from .record import OdooRecord
+from .record_set import OdooRecordSet
 
 METHODE_MAPPING = {
     15: [('get_object_reference', 'check_object_reference')]
@@ -168,7 +169,10 @@ class OdooConnection:
                 self.logger.error(pformat(args))
                 self.logger.error(e)
                 raise e
+
     def values_to_record(self, model_name, values, update_cache=True):
+        if isinstance(values, int):
+            values = {'id': values}
         record = OdooRecord(self, self.model(model_name), values)
         if update_cache:
             self._models[model_name]._update_cache(record.id, values)
@@ -178,7 +182,13 @@ class OdooConnection:
         if self._legacy:
             return val_list
         records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
-        return records
+        if not records:
+            return []
+        if len(records) == 1:
+            return records
+        else:
+            return OdooRecordSet(records, model=self.model(model_name))
+
 
     def get_ref(self, external_id):
         res = self.get_object_reference(external_id)[1]
@@ -366,9 +376,8 @@ class OdooConnection:
         self.logger.info("\t\t\tTotal time %s" % (stop - start))
 
     def create(self, model, values, context=None):
-        params = [values] if isinstance(values, dict) else values
-        res = self.execute_odoo(model, 'create', params,  {'context': context or self._context})
-        return res
+        res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
+        return self.values_list_to_records(model, res)
 
     def unlink(self, model, values, context=None):
         return self.execute_odoo(model, 'unlink', [values],  {'context': context or self._context})
