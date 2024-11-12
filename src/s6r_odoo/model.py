@@ -73,11 +73,10 @@ class OdooModel(object):
     def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         return self._odoo.read_group(self.model_name, domain, fields, groupby, offset, limit, orderby, lazy, context)
 
-    def search(self, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
+    def search(self, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         return self._odoo.search(self.model_name, domain, fields, order, offset, limit, context)
-        # return self.values_list_to_records(res)
 
-    def search_ids(self, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
+    def search_ids(self, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         return self._odoo.search_ids(self.model_name, domain, fields, order, offset, limit, context)
 
     def get_record(self, rec_id, context=None):
@@ -89,8 +88,8 @@ class OdooModel(object):
     def load(self, load_keys, load_data, context=None):
         return self._odoo.load(self.model_name, load_keys, load_data, context)
 
-    def load_batch(self, data, batch_size=100, skip_line=0):
-        return self._odoo.load_batch(self.model_name, data, batch_size, skip_line)
+    def load_batch(self, data, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
+        return self._odoo.load_batch(self.model_name, data, batch_size, skip_line, context, ignore_fields)
 
     def write(self, ids, values, context=None):
         return self._odoo.write(self.model_name, ids, values, context)

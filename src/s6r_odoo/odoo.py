@@ -314,12 +314,12 @@ class OdooConnection:
                                 {'context': context or self._context})
         return res
 
-    def search(self, model, domain=[], fields=[], order=[], offset=0, limit=0, context=None):
+    def search(self, model, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         return self.values_list_to_records(model, res)
 
-    def search_ids(self, model, domain=[], order=[], offset=0, limit=0, context=None):
+    def search_ids(self, model, domain=[], order="", offset=0, limit=0, context=None):
         params = [domain, offset, limit, order]
         res = self.execute_odoo(model, 'search', params, {'context': context or self._context})
         return res
@@ -341,13 +341,18 @@ class OdooConnection:
             self.logger.error("%s : %s" % (message['record'], message['message']))
         return res
 
-    def load_batch(self, model, datas, batch_size=100, skip_line=0):
+    def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
         if not datas:
             return
         cc_max = len(datas)
         start = datetime.now()
 
         load_keys = list(datas[0].keys())
+        for field in ignore_fields:
+            try:
+                load_keys.remove(field)
+            except ValueError:
+                self.logger.warning(f"\"{field}\" field name not found in data keys")
         load_datas = [[]]
         for cc, data in enumerate(datas):
             if len(load_datas[-1]) >= batch_size:
@@ -359,7 +364,7 @@ class OdooConnection:
             start_batch = datetime.now()
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
-            res = self.load(model, load_keys, load_data, context=self._context)
+            res = self.load(model, load_keys, load_data, context=self.context | context)
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
