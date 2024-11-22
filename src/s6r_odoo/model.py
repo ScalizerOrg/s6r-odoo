@@ -115,8 +115,8 @@ class OdooModel(object):
     def get_xmlid_dict(self):
         return self._odoo.get_xmlid_dict(self.model_name)
 
-    def get_fields(self, fields=None, attribute_list=None):
-        return self._odoo.get_fields(self.model_name, fields, attribute_list)
+    def get_fields(self, fields=None, attributes=None):
+        return self._odoo.get_fields(self.model_name, fields, attributes)
 
     def load_fields_description(self):
         if not self._fields_loaded:
@@ -149,9 +149,3 @@ class OdooModel(object):
         ir_model_datas = list(filter(lambda x: x.res_id == res_id, self._xmlid_cache))
         if ir_model_datas:
             return '{0}.{1}'.format(ir_model_datas[0].module, ir_model_datas[0].name)
-
-    # def get_xmlid_cache(self):
-    #     model_datas = self.get_ir_model_data()
-    #     self._cache_id_ref_dict = dict(
-    #         [(data['res_id'], '%s.%s' % (data['module'], data['name'])) for data in model_datas])
-    #     self._cache_xmlid_dict = dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])

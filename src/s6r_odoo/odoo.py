@@ -428,12 +428,12 @@ class OdooConnection:
         model_datas = self.get_ir_model_data(model)
         return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
 
-    def get_fields(self, model, fields=None, attribute_list=None):
-        if model in self._models and self._models[model]._fields and not fields and not attribute_list:
+    def get_fields(self, model, fields=None, attributes=None):
+        if model in self._models and self._models[model]._fields and not fields and not attributes:
             return self._models[model]._fields
         params = [fields or []]
-        if attribute_list:
-            params.append(attribute_list)
+        if attributes:
+            params.append(attributes)
 
         return self.execute_odoo(model, 'fields_get', params)
 
