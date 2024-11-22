@@ -4,9 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [1.0.9] - 2024-10-02
+
+
+## [2.0.0] - 2024-11-12
+
 ### Added
- - "load_batch" method
+ - Allows to use orm with a synthax close to the Odoo orm
+ - Add record cache
+ - Allows to save record set by batch
+
+## [1.0.9] - 2024-10-02
+
+### Added
+   - "load_batch" method
    - added "context" keyword to stay consistent with other methods
    - added "ignored_fields" keyword to remove specific keys from data to be loaded
 ### Fixed

@@ -142,9 +142,7 @@ class OdooConnection:
             self.logger.error(msg)
             raise ConnectionError(msg)
 
-    def execute_odoo(self, *args, no_raise=False):
-        model = args[0]
-        method = args[1]
+    def query_counter_update(self, model, method):
         self.query_count += 1
         if method not in self.method_count:
             self.method_count[method] = {model: 1}
@@ -153,6 +151,12 @@ class OdooConnection:
                 self.method_count[method][model] = 1
             else:
                 self.method_count[method][model] += 1
+
+    def execute_odoo(self, *args, no_raise=False):
+        model = args[0]
+        method = args[1]
+        self.query_counter_update(model, method)
+
         self.logger.debug("*" * 50)
         self.logger.debug("Execute odoo :")
         self.logger.debug("\t Model : %s" % model)
@@ -188,7 +192,6 @@ class OdooConnection:
             return records
         else:
             return OdooRecordSet(records, model=self.model(model_name))
-
 
     def get_ref(self, external_id):
         res = self.get_object_reference(external_id)[1]
@@ -342,6 +345,7 @@ class OdooConnection:
         return res
 
     def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
+        context = self.context | context if context else self.context
         if not datas:
             return
         cc_max = len(datas)
@@ -364,7 +368,7 @@ class OdooConnection:
             start_batch = datetime.now()
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
-            res = self.load(model, load_keys, load_data, context=self.context | context)
+            res = self.load(model, load_keys, load_data, context=context)
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
