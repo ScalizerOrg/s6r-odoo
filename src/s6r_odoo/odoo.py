@@ -461,3 +461,8 @@ class OdooConnection:
     def _get_model_cache(self, model):
         cache = self._models[model]._cache
         return [cache[res_id] for res_id in cache.keys()]
+
+    def print_query_count(self):
+        self.logger.info('Query count : %s', self.query_count)
+        for method in self.method_count:
+            self.logger.info('Method Count %s : %s', method, self.method_count[method])

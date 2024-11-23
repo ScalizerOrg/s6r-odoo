@@ -11,15 +11,11 @@ def get_random_string(length):
 
 logging.basicConfig()
 logger = logging.getLogger("test")
-odoo = OdooConnection(url='http://odoo_test.localhost',
-                          dbname='odoo_test',
+odoo = OdooConnection(url='http://odoo_digitalportage2.localhost',
+                          dbname='digitalportage_prod',
                           user='admin',
                           password='admin', debug_xmlrpc=False, logger=logger)
 
-def print_query_count():
-    logger.info('Query count : %s', odoo.query_count)
-    for method in odoo.method_count:
-        logger.info('Method Count %s : %s', method, odoo.method_count[method])
 
 xmlid_dict = odoo.model('ir.module.module').get_xmlid_dict()
 logger.info('ir.module.module XMLIDs : %s', xmlid_dict)
@@ -41,7 +37,7 @@ logger.info(msg, module_account.display_name,
 
 odoo.get_xml_id_from_id('ir.module.module', module_account.id)
 
-print_query_count()
+odoo.print_query_count()
 
 partner_fields = odoo.execute_odoo('res.partner', 'fields_get', [['name'], None])
 country_fields = odoo.model('res.country').get_fields([])
@@ -140,4 +136,4 @@ new_partner_values_list =[{'name': "TO_REMOVE", 'website': get_random_string(8)}
 new_partner_ids = odoo.model('res.partner').create(new_partner_values_list)
 new_partner_ids.unlink()
 
-print_query_count()
+odoo.print_query_count()

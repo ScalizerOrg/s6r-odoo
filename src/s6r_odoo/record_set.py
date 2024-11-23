@@ -13,6 +13,11 @@ class OdooRecordSet(set):
             self._model = model
             self._odoo = self._model._odoo
 
+    def __getattr__(self, name):
+        if name == 'ids':
+            return self.get_ids()
+        else:
+            return self.super().__getattr__(name)
 
     def save(self, batch_size=100, skip_line=0):
         values_list = [r.get_update_values() for r in self]
@@ -25,7 +30,7 @@ class OdooRecordSet(set):
         return [r.id for r in self]
 
     def unlink(self):
-        ids = self.get_ids()
+        ids = self.ids
         self._model.unlink(ids)
         for key in ids:
             self._model._cache.pop(key, None)
