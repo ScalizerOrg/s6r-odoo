@@ -14,6 +14,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from .model import OdooModel
+from .record import OdooRecord
+from .record_set import OdooRecordSet
 
 METHODE_MAPPING = {
     15: [('get_object_reference', 'check_object_reference')]
@@ -22,10 +24,13 @@ METHODE_MAPPING = {
 
 class OdooConnection:
     _context = {'lang': 'fr_FR', 'noupdate': True}
+    _models = {}
+    query_count = 0
+    method_count = {}
 
     def __init__(self, url, dbname, user, password, version=15.0, http_user=None, http_password=None, createdb=False,
-                 debug_xmlrpc=False):
-        self.logger = logging.getLogger("Odoo Connection".ljust(15))
+                 debug_xmlrpc=False, legacy=False, logger=None):
+        self.logger = logger or logging.getLogger("Odoo Connection".ljust(15))
         if debug_xmlrpc:
             self.logger.setLevel(logging.DEBUG)
         else:
@@ -37,6 +42,7 @@ class OdooConnection:
         self._http_user = http_user
         self._http_password = http_password
         self._version = version
+        self._legacy = legacy
         self._debug_xmlrpc = debug_xmlrpc
         # noinspection PyProtectedMember,PyUnresolvedReferences
         self._insecure_context = ssl._create_unverified_context()
@@ -45,12 +51,22 @@ class OdooConnection:
             self._create_db()
         self._prepare_connection()
 
+    def __str__(self):
+        return 'OdooConnection(%s)' % self._dbname
+
+    def __repr__(self):
+        return str(self)
+
     @property
     def context(self):
         return self._context
 
     def model(self, model_name):
-        return OdooModel(self, model_name)
+        if model_name in self._models:
+            return self._models[model_name]
+        res = OdooModel(self, model_name)
+        self._models[model_name] = res
+        return res
 
     def _compute_url(self):
         if self._http_user or self._http_password:
@@ -126,11 +142,25 @@ class OdooConnection:
             self.logger.error(msg)
             raise ConnectionError(msg)
 
+    def query_counter_update(self, model, method):
+        self.query_count += 1
+        if method not in self.method_count:
+            self.method_count[method] = {model: 1}
+        else:
+            if model not in self.method_count[method]:
+                self.method_count[method][model] = 1
+            else:
+                self.method_count[method][model] += 1
+
     def execute_odoo(self, *args, no_raise=False):
+        model = args[0]
+        method = args[1]
+        self.query_counter_update(model, method)
+
         self.logger.debug("*" * 50)
         self.logger.debug("Execute odoo :")
-        self.logger.debug("\t Model : %s" % (args[0]))
-        self.logger.debug("\t Method : %s" % (args[1]))
+        self.logger.debug("\t Model : %s" % model)
+        self.logger.debug("\t Method : %s" % method)
         self.logger.debug("\t " + "%s " * (len(args) - 2) % args[2:])
         self.logger.debug("*" * 50)
         try:
@@ -144,10 +174,27 @@ class OdooConnection:
                 self.logger.error(e)
                 raise e
 
+    def values_to_record(self, model_name, values, update_cache=True):
+        if isinstance(values, int):
+            values = {'id': values}
+        record = OdooRecord(self, self.model(model_name), values)
+        if update_cache:
+            self._models[model_name]._update_cache(record.id, values)
+        return record
+
+    def values_list_to_records(self, model_name, val_list, update_cache=True):
+        if self._legacy:
+            return val_list
+        records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
+        if not records:
+            return []
+        if len(records) == 1:
+            return records
+        else:
+            return OdooRecordSet(records, model=self.model(model_name))
+
     def get_ref(self, external_id):
-        res = \
-            self.execute_odoo('ir.model.data', self._get_xmlrpc_method('get_object_reference'), external_id.split('.'))[
-                1]
+        res = self.get_object_reference(external_id)[1]
         self.logger.debug('Get ref %s > %s' % (external_id, res))
         return res
 
@@ -173,12 +220,36 @@ class OdooConnection:
     def get_search_id(self, model, domain):
         return self.execute_odoo(model, 'search', [domain, 0, 1, "id", False], {'context': self._context})[0]
 
+    def search_ir_model_data(self, domain):
+        return self.model('ir.model.data').search(domain,
+                                                  fields=['module', 'name', 'model', 'res_id'],
+                                                  order='id')
+
+    def get_object_reference_legacy(self, xml_id, no_raise=False):
+        object_reference = self._get_xmlrpc_method('get_object_reference')
+        return self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
+
+
+    def get_object_reference(self, xml_id, no_raise=False):
+        if self._legacy:
+            return self.get_object_reference_legacy(xml_id, no_raise=no_raise)
+
+        ref = self._get_object_reference_cache(xml_id)
+        if ref:
+            return ref
+        module, name = xml_id.split('.')
+        domain = [('module', '=', module), ('name', '=', name)]
+        res = self.search_ir_model_data(domain)
+        if res:
+            ir_model_data_id = res[0]
+            return [ir_model_data_id.model, ir_model_data_id.res_id]
+
     def get_id_from_xml_id(self, xml_id, no_raise=False):
         if '.' not in xml_id:
             xml_id = "external_config." + xml_id
         try:
-            object_reference = self._get_xmlrpc_method('get_object_reference')
-            res = self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
+
+            res = self.get_object_reference(xml_id, no_raise=no_raise)
             return res[1] if res else False
         except xmlrpc.client.Fault as fault:
             if no_raise:
@@ -190,11 +261,19 @@ class OdooConnection:
             else:
                 raise err
 
+    def ref(self, ixml_id, no_raise=False, fields=None, no_cache=False):
+        object_reference = self.get_object_reference(ixml_id, no_raise=no_raise)
+        if len(object_reference) == 2:
+            model, res_id = object_reference
+            return self.model(model).read(res_id, fields=fields, no_cache=no_cache)
+
     def get_xml_id_from_id(self, model, res_id):
+        cache_xmlid = self._get_xmlid_cache(model, res_id)
+        if cache_xmlid:
+            return cache_xmlid
         try:
             domain = [('model', '=', model), ('res_id', '=', res_id)]
-            res = self.execute_odoo('ir.model.data', 'search_read', [domain, ['module', 'name'], 0, 0, "id"],
-                                    {'context': self._context})
+            res = self.search_ir_model_data(domain)
             if res:
                 datas = res[0]
                 return "%s.%s" % (datas['module'], datas['name'])
@@ -224,9 +303,14 @@ class OdooConnection:
                                 {'context': context or self._context})
         return res
 
-    def read(self, model, ids, fields, context=None):
-        return self.execute_odoo(model, 'read', [ids, fields],
+    def _read(self, model, ids, fields, context=None):
+        param_ids = [ids] if isinstance(ids, int) else ids
+        return self.execute_odoo(model, 'read', [param_ids, fields],
                                  {'context': context or self._context})
+
+    def read(self, model, ids, fields, context=None):
+        res =  self._read(model, ids, fields, context)
+        return self.values_list_to_records(model, res)
 
     def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         res = self.execute_odoo(model, 'read_group', [domain, fields, groupby, offset, limit, orderby, lazy],
@@ -236,7 +320,7 @@ class OdooConnection:
     def search(self, model, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
-        return res
+        return self.values_list_to_records(model, res)
 
     def search_ids(self, model, domain=[], order="", offset=0, limit=0, context=None):
         params = [domain, offset, limit, order]
@@ -260,7 +344,8 @@ class OdooConnection:
             self.logger.error("%s : %s" % (message['record'], message['message']))
         return res
 
-    def load_batch(self, model, datas, ignore_fields=[], batch_size=100, skip_line=0, context=None):
+    def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
+        context = self.context | context if context else self.context
         if not datas:
             return
         cc_max = len(datas)
@@ -283,7 +368,7 @@ class OdooConnection:
             start_batch = datetime.now()
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
-            res = self.load(model, load_keys, load_data, context=self.context | context)
+            res = self.load(model, load_keys, load_data, context=context)
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
@@ -300,9 +385,8 @@ class OdooConnection:
         self.logger.info("\t\t\tTotal time %s" % (stop - start))
 
     def create(self, model, values, context=None):
-        params = [values] if isinstance(values, dict) else values
-        res = self.execute_odoo(model, 'create', params,  {'context': context or self._context})
-        return res
+        res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
+        return self.values_list_to_records(model, res)
 
     def unlink(self, model, values, context=None):
         return self.execute_odoo(model, 'unlink', [values],  {'context': context or self._context})
@@ -326,15 +410,59 @@ class OdooConnection:
         file_name = name or os.path.basename(file_path)
         return self.create_attachment(file_name, datas, res_model, res_id, context)
 
+    def get_ir_model_data(self, model):
+        return self.search('ir.model.data', [('model', '=', model)],
+                    fields=['module', 'name', 'model', 'res_id'])
+
     def get_id_ref_dict(self, model):
-        model_datas = self.search('ir.model.data', [('model', '=', model)])
-        return dict([(data['res_id'], '%s.%s' % (data['module'], data['name'])) for data in model_datas])
+        """
+        Returns a dict with xmlid as key and id as value
+        :param model: Model name
+        :return: {'base.module_account': 894, ...}
+        """
+        model_datas = self.get_ir_model_data(model)
+        return dict([(data.res_id, '%s.%s' % (data.module, data.name)) for data in model_datas])
 
     def get_xmlid_dict(self, model):
-        model_datas = self.search('ir.model.data', [('model', '=', model)])
-        return dict([('%s.%s' % (data['module'], data['name']), data['res_id']) for data in model_datas])
+        """
+        Returns a dict with id as key and xmlid as value
+        :param model: Model name
+        :return: {894: 'base.module_account', ...}
+        """
+        model_datas = self.get_ir_model_data(model)
+        return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
 
-    def get_fields(self, model, fields=[], attributes=[]):
-        """get infos about the specified fields,
-        leaving the attributes keyword empty will return all attributes, commonly used ones are 'name', 'type', 'string' """
-        return self.execute_odoo(model, 'fields_get', [], {'allfields': fields, 'attributes': attributes})
+    def get_fields(self, model, fields=None, attributes=None):
+        if model in self._models and self._models[model]._fields and not fields and not attributes:
+            return self._models[model]._fields
+        params = [fields or []]
+        if attributes:
+            params.append(attributes)
+
+        return self.execute_odoo(model, 'fields_get', params)
+
+    def _get_xmlid_cache(self, model, res_id):
+        if not 'ir.model.data' in self._models:
+            return
+        cache = self._get_model_cache('ir.model.data')
+        ir_model_datas = list(filter(lambda x: x['model'] == model and x['res_id'] == res_id, cache))
+        if ir_model_datas:
+            return '{0}.{1}'.format(ir_model_datas[0]['module'], ir_model_datas[0]['name'])
+
+    def _get_object_reference_cache(self, xml_id):
+        if not 'ir.model.data' in self._models:
+            return
+        module, name = xml_id.split('.')
+        cache = self._get_model_cache('ir.model.data')
+        ir_model_datas = list(filter(lambda x: x['module'] == module and x['name'] == name, cache))
+        if ir_model_datas:
+            return [ir_model_datas[0]['model'], ir_model_datas[0]['res_id']]
+
+    def _get_model_cache(self, model):
+        cache = self._models[model]._cache
+        return [cache[res_id] for res_id in cache.keys()]
+
+    def print_query_count(self):
+        self.logger.info('Query count : %s', self.query_count)
+        for method in self.method_count:
+            self.logger.info('Method Count %s : %s', method, self.method_count[method])

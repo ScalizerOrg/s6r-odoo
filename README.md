@@ -11,13 +11,14 @@
 ```python
 from s6r_odoo import OdooConnection
 
-odoo_cli = OdooConnection(url='http://odoo.localhost',
+odoo = OdooConnection(url='http://odoo.localhost',
                           dbname='odoo',
                           user='admin',
                           password='admin')
-partners = odoo_cli.read_search('res.partner', [])
-for partner in partners:
-    print(partner)
+res_partner = odoo.model('res.partner')
+partner_ids = res_partner.search([],  fields=['name', 'email'])
+for partner_id in partner_ids:
+    print(f'{partner_id.name} : {partner_id.email}')
 ```
 
 ## License
