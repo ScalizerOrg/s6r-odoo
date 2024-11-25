@@ -7,7 +7,7 @@ from s6r_odoo import OdooConnection
 
 def get_random_string(length):
     letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(length))
+    return ''.join(random.choice(letters) for _ in range(length))
 
 logging.basicConfig()
 logger = logging.getLogger("test")
@@ -40,6 +40,8 @@ odoo.get_xml_id_from_id('ir.module.module', module_account.id)
 odoo.print_query_count()
 
 partner_fields = odoo.execute_odoo('res.partner', 'fields_get', [['name'], None])
+partner_fields2 = odoo.model('res.partner').execute('fields_get', ['name'])
+
 country_fields = odoo.model('res.country').get_fields([])
 country_required_fields = ', '.join(country_fields[key]['name'] for key in country_fields if country_fields[key]['required'])
 logger.info('Country required fields : %s', country_required_fields)
@@ -62,19 +64,19 @@ logger.info("Optimised Script : %s seconds (first query : %s seconds)", optimize
 
 
 # Script NOT optimised to access to licence and category_id field
-start_time = time.time()
-module_ids = odoo.model('ir.module.module').search([('author', 'ilike', 'Odoo')],
-                                                   fields=['display_name'],
-                                                   order='create_date desc, name', limit=10)
-not_optimized_query_time = time.time() - start_time
-start_time = time.time()
-logger.info('Module categories : %s', ', '.join(set([module.category_id.name for module in module_ids])))
-for module_id in filter(lambda x: x.category_id.name != 'Scalizer', module_ids): # module_ids:
-    module_license = module_id.license if module_id['license'] else 'Unknown'
-    logger.info('* Module %s : %s', module_id.display_name, module_id.license)
-    continue
-not_optimized_time = time.time() - start_time
-logger.info("NOT Optimised Script : %s seconds (first query : %s seconds)", not_optimized_time, not_optimized_query_time)
+# start_time = time.time()
+# module_ids = odoo.model('ir.module.module').search([('author', 'ilike', 'Odoo')],
+#                                                    fields=['display_name'],
+#                                                    order='create_date desc, name', limit=10)
+# not_optimized_query_time = time.time() - start_time
+# start_time = time.time()
+# logger.info('Module categories : %s', ', '.join(set([module.category_id.name for module in module_ids])))
+# for module_id in filter(lambda x: x.category_id.name != 'Scalizer', module_ids): # module_ids:
+#     module_license = module_id.license if module_id['license'] else 'Unknown'
+#     logger.info('* Module %s : %s', module_id.display_name, module_id.license)
+#     continue
+# not_optimized_time = time.time() - start_time
+# logger.info("NOT Optimised Script : %s seconds (first query : %s seconds)", not_optimized_time, not_optimized_query_time)
 
 # XMLIDs Tests
 logger.info('Module XMLIDs : %s', odoo.get_xmlid_dict('ir.module.module'))
@@ -132,7 +134,7 @@ partner_ids = odoo.model('res.partner').search([('name', '=', 'TO_REMOVE')], fie
 if partner_ids:
     partner_ids.unlink()
 
-new_partner_values_list =[{'name': "TO_REMOVE", 'website': get_random_string(8)} for i in range(50)]
+new_partner_values_list = [{'name': "TO_REMOVE", 'website': get_random_string(8)} for i in range(50)]
 new_partner_ids = odoo.model('res.partner').create(new_partner_values_list)
 new_partner_ids.unlink()
 

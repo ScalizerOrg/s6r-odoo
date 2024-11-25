@@ -34,8 +34,8 @@ class OdooModel(object):
         if record_id in self._cache:
             return self.values_to_record(self._cache.get(record_id), update_cache=False)
 
-    def execute(self, *args, no_raise=False):
-        return self._odoo.execute_odoo(self.model_name, args[0], args[1:], no_raise=no_raise)
+    def execute(self, model_method,  *args, no_raise=False):
+        return self._odoo.execute_odoo(self.model_name, model_method, args, no_raise=no_raise)
 
     def search_get_id(self, domain):
         return self._odoo.get_search_id(self.model_name, domain)
