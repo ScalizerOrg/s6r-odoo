@@ -78,10 +78,13 @@ class OdooRecord(object):
 
     def set_values(self, values, update_cache=True):
         self._values.update(values)
+        #remove '/id' key so it is stored in _values but will not end up in attributes
+        values.pop('/id', None)
         if self._model and update_cache:
             self._update_cache()
         for key in values:
             value = values[key]
+            #handling relation to other record
             if isinstance(value, list) and len(value) == 2:
                 setattr(self, key, OdooRecord(self._odoo, None, {'id': value[0], 'name': value[1]}, key, self._model))
             else:
@@ -110,6 +113,13 @@ class OdooRecord(object):
             return res[0]
 
     def save(self):
+        if '/id' in self._values:
+            self._values['id'] = self._values.get('/id')
+            self._values.pop('/id')
+            res = self._model.load(list(self._values.keys()), [list(self._values.values())])
+            if res.get('ids'):
+                self.id = res.get('ids')[0]
+            return
         if self.id:
             self._model.write(self.id, self._updated_values)
             self._updated_values = {}
@@ -128,7 +138,15 @@ class OdooRecord(object):
     def get_update_values(self):
         values = self._updated_values
         if self.id:
+            values = self._updated_values
             values['.id'] = self.id
         else:
             values['id'] = self.id
+            values = self._values
+            if values.get('/id'):
+                values['id'] = values['/id']
+                values.pop('/id')
+            else:
+                values['id'] = self.id
+
         return values
