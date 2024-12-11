@@ -104,12 +104,12 @@ if partner_id.email != email2:
     raise Exception('Email %s not updated' % email2)
 
 partner_id2 = odoo.model('res.partner').read(partner_id.id)
-if email2 in partner_id2.email_formatted:
+if partner_id2.email_formatted and email2 in partner_id2.email_formatted:
     partner_id.write({'email': origin_email})
     raise Exception('Cache not used with read')
 
 partner_id2 = odoo.ref('base.main_partner')
-if email2 in partner_id2.email_formatted:
+if partner_id2.email_formatted and email2 in partner_id2.email_formatted:
     partner_id.write({'email': origin_email})
     raise Exception('Cache not used with ref')
 
