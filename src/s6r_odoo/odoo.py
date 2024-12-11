@@ -383,6 +383,7 @@ class OdooConnection:
                 stop_batch - start_batch, ((stop_batch - start_batch) / len(load_data)).microseconds / 1000))
         stop = datetime.now()
         self.logger.info("\t\t\tTotal time %s" % (stop - start))
+        return res
 
     def create(self, model, values, context=None):
         res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
