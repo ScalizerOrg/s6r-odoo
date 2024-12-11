@@ -387,6 +387,8 @@ class OdooConnection:
 
     def create(self, model, values, context=None):
         res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
+        if isinstance(res, int):
+            res = [res]
         return self.values_list_to_records(model, res)
 
     def unlink(self, model, values, context=None):
