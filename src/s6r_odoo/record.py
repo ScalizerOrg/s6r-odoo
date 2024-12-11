@@ -124,7 +124,7 @@ class OdooRecord(object):
             self._model.write(self.id, self._updated_values)
             self._updated_values = {}
         else:
-            self.id = self._odoo._create(self._model.model_name, self._values)
+            self.id = self._odoo.create(self._model.model_name, self._values)[0].id
             self._initialized_fields = list(self._values.keys())
 
     def write(self, values):
