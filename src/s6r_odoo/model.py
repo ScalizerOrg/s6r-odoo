@@ -30,6 +30,9 @@ class OdooModel(object):
             self._update_cache(values['id'], values)
         return self._odoo.values_to_record(self.model_name, values, update_cache=False)
 
+    def values_list_to_records(self, val_list, update_cache=True):
+        return self._odoo.values_list_to_records(self.model_name, val_list, update_cache=update_cache)
+
     def _get_cache(self, record_id):
         if record_id in self._cache:
             return self.values_to_record(self._cache.get(record_id), update_cache=False)
