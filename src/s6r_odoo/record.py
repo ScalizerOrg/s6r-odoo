@@ -136,12 +136,10 @@ class OdooRecord(object):
         self.read(self._initialized_fields, no_cache=True)
 
     def get_update_values(self):
-        values = self._updated_values
         if self.id:
             values = self._updated_values
             values['.id'] = self.id
         else:
-            values['id'] = self.id
             values = self._values
             if values.get('/id'):
                 values['id'] = values['/id']
@@ -150,3 +148,8 @@ class OdooRecord(object):
                 values['id'] = self.id
 
         return values
+
+    def unlink(self):
+        if self.id:
+            self._model.unlink(self.id)
+            self._model._cache.pop(self.id, None)
