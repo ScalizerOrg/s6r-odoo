@@ -386,10 +386,13 @@ class OdooConnection:
         return res
 
     def create(self, model, values, context=None):
+        if isinstance(values, dict):
+            values = [values]
         res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
         if isinstance(res, int):
             res = [res]
-        return self.values_list_to_records(model, res)
+        res_values = [{'id': r} | values[i] for i, r in enumerate(res)]
+        return self.values_list_to_records(model, res_values)
 
     def unlink(self, model, values, context=None):
         return self.execute_odoo(model, 'unlink', [values],  {'context': context or self._context})
