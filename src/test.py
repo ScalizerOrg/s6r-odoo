@@ -104,12 +104,12 @@ if partner_id.email != email2:
     raise Exception('Email %s not updated' % email2)
 
 partner_id2 = odoo.model('res.partner').read(partner_id.id)
-if email2 in partner_id2.email_formatted:
+if partner_id2.email_formatted and email2 in partner_id2.email_formatted:
     partner_id.write({'email': origin_email})
     raise Exception('Cache not used with read')
 
 partner_id2 = odoo.ref('base.main_partner')
-if email2 in partner_id2.email_formatted:
+if partner_id2.email_formatted and email2 in partner_id2.email_formatted:
     partner_id.write({'email': origin_email})
     raise Exception('Cache not used with ref')
 
@@ -139,3 +139,36 @@ new_partner_ids = odoo.model('res.partner').create(new_partner_values_list)
 new_partner_ids.unlink()
 
 odoo.print_query_count()
+
+#Test record creation from dict
+partner_tag1 = {
+    'name': 'Test tag without xmlid',
+    'color': 2,
+    }
+partner_tag_record1 = odoo.model('res.partner.category').values_to_record(partner_tag1, update_cache=False)
+#this record will be created using "create" method
+partner_tag_record1.save()
+
+partner_tag2 = {
+    '/id': f'external_config.res_partner_category_test',
+    'name': 'Test tag with xmlid',
+    'color': 10,
+    }
+partner_tag_record2 = odoo.model('res.partner.category').values_to_record(partner_tag2, update_cache=False)
+#this record will be created using "load" method
+partner_tag_record2.save()
+#cleanup
+partner_tag_record1.unlink()
+partner_tag_record2.unlink()
+
+partner_tags_list = [{'name': f"TAG {i}", 'color': i} for i in range(10)]
+partner_tag_recordset = odoo.model('res.partner.category').values_list_to_records(partner_tags_list)
+#load the records without xmlid
+partner_tag_recordset.save()
+partner_tag_recordset.unlink()
+
+partner_tags_list2 = [{'/id':f"external_config.res_partner_category_{i}", 'name': f"TAG {i}", 'color': i-10} for i in range(10,20)]
+partner_tag_recordset2 = odoo.model('res.partner.category').values_list_to_records(partner_tags_list2)
+#load the records with xmlid
+partner_tag_recordset2.save()
+partner_tag_recordset2.unlink()

@@ -383,9 +383,12 @@ class OdooConnection:
                 stop_batch - start_batch, ((stop_batch - start_batch) / len(load_data)).microseconds / 1000))
         stop = datetime.now()
         self.logger.info("\t\t\tTotal time %s" % (stop - start))
+        return res
 
     def create(self, model, values, context=None):
         res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
+        if isinstance(res, int):
+            res = [res]
         return self.values_list_to_records(model, res)
 
     def unlink(self, model, values, context=None):

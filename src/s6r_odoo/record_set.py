@@ -19,11 +19,13 @@ class OdooRecordSet(set):
         else:
             return self.super().__getattr__(name)
 
-    def save(self, batch_size=100, skip_line=0):
+    def save(self, batch_size=100, skip_line=0, ignore_fields=[]):
         values_list = [r.get_update_values() for r in self]
-        self._model.load_batch(values_list, batch_size=batch_size, skip_line=skip_line)
-        for r in self:
+        res = self._model.load_batch(values_list, batch_size=batch_size, skip_line=skip_line, ignore_fields=ignore_fields)
+        for i, r in enumerate(self):
             r._updated_values = {}
+            if not r.id:
+                r.id = res.get('ids')[i]
         return True
 
     def get_ids(self):
