@@ -62,15 +62,25 @@ class OdooRecord(object):
             raise AttributeError("Attribute '%s' not found in model '%s'" % (name, self._model))
 
     def __setattr__(self, name, value):
-        if name.startswith('_'):
+        if name.startswith('_') or name == 'id':
             return super().__setattr__(name, value)
+        if name not in self._values:
+            if not self._model._fields_loaded:
+                self._model.load_fields_description()
         if name in self._values and name in self._initialized_fields and value != self._values[name]:
             self._updated_values[name] = value
             return super().__setattr__(name, value)
-        else:
+        if name in self._values and name not in self._initialized_fields:
+            self._updated_values[name] = value
             res = super().__setattr__(name, value)
             self._initialized_fields.append(name)
             return res
+        return super().__setattr__(name, value)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, str):
+            return self.__setattr__(key, value)
+        return super().__setitem__(key, value)
 
     def _update_cache(self):
         if self._model:
