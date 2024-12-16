@@ -1,7 +1,6 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
 
-from .record import OdooRecord
 
 class OdooRecordSet(set):
     _odoo = None
@@ -21,11 +20,15 @@ class OdooRecordSet(set):
 
     def save(self, batch_size=100, skip_line=0, ignore_fields=[]):
         values_list = [r.get_update_values() for r in self]
-        res = self._model.load_batch(values_list, batch_size=batch_size, skip_line=skip_line, ignore_fields=ignore_fields)
+        res = self._model.load_batch(values_list, batch_size=batch_size,skip_line=skip_line,
+                                     ignore_fields=ignore_fields)
+        res_ids = res.get('ids', False)
+        if not res_ids:
+            return False
         for i, r in enumerate(self):
             r._updated_values = {}
             if not r.id:
-                r.id = res.get('ids')[i]
+                r.id = res_ids[i]
         return True
 
     def get_ids(self):
@@ -37,3 +40,8 @@ class OdooRecordSet(set):
         for key in ids:
             self._model._cache.pop(key, None)
         self.clear()
+
+    def filtered(self, func=None, **kwargs):
+        if func:
+            return [r for r in self if func(r)]
+        return [r for r in self if all(getattr(r, k) == v for k, v in kwargs.items())]

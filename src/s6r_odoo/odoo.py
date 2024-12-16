@@ -317,7 +317,10 @@ class OdooConnection:
                                 {'context': context or self._context})
         return res
 
-    def search(self, model, domain=[], fields=[], order="", offset=0, limit=0, context=None):
+    def search(self, model, domain=[], fields=[], order="", offset=0, limit=0, context=None, **kwargs):
+        if 'exclude_fields' in kwargs:
+            exclude_fields = kwargs['exclude_fields']
+            fields = [f for f in fields if f not in exclude_fields]
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         return self.values_list_to_records(model, res)
@@ -341,7 +344,7 @@ class OdooConnection:
     def load(self, model, load_keys, load_data, context):
         res = self.execute_odoo(model, 'load', [load_keys, load_data], {'context': context or self._context})
         for message in res['messages']:
-            self.logger.error("%s : %s" % (message['record'], message['message']))
+            self.logger.error("%s : %s" % (message.get('record', False), message['message']))
         return res
 
     def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
@@ -375,7 +378,7 @@ class OdooConnection:
                         self.logger.error("record : %s" % (message['record']))
                     if message.get('message'):
                         self.logger.error("message : %s" % (message['message']))
-                    raise Exception(message['message'])
+                    # raise Exception(message['message'])
                 else:
                     self.logger.info(message)
             stop_batch = datetime.now()

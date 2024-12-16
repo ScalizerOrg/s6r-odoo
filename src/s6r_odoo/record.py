@@ -1,12 +1,14 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
 
+from .model import OdooModel
 
 class OdooRecord(object):
     _odoo = None
     _model = None
     _field = ''
     _parent_model = None
+    _xmlid = ''
 
     def __init__(self, odoo, model, values: dict, field='', parent_model=None):
         self._values = {}
@@ -88,17 +90,22 @@ class OdooRecord(object):
 
     def set_values(self, values, update_cache=True):
         self._values.update(values)
+        if not values.get('id', False):
+            self._updated_values = values
+
         #remove '/id' key so it is stored in _values but will not end up in attributes
-        values.pop('/id', None)
+        self._xmlid = values.pop('/id', None)
         if self._model and update_cache:
             self._update_cache()
         for key in values:
             value = values[key]
             #handling relation to other record
             if isinstance(value, list) and len(value) == 2:
-                setattr(self, key, OdooRecord(self._odoo, None, {'id': value[0], 'name': value[1]}, key, self._model))
+                field = self._model.get_field(key)
+                model = OdooModel(self._odoo, field.get('relation'))
+                super().__setattr__(key, OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model))
             else:
-                setattr(self, key, value)
+                super().__setattr__(key, value)
 
     def read(self, fields=None, no_cache=False):
         if not self._model._fields_loaded:
@@ -146,16 +153,14 @@ class OdooRecord(object):
         self.read(self._initialized_fields, no_cache=True)
 
     def get_update_values(self):
+        values = self._updated_values
         if self.id:
-            values = self._updated_values
             values['.id'] = self.id
         else:
-            values = self._values
-            if values.get('/id'):
-                values['id'] = values['/id']
-                values.pop('/id')
+            if self._xmlid:
+                values['id'] = self._xmlid
             else:
-                values['id'] = self.id
+                values['id'] = None
 
         return values
 
@@ -163,3 +168,4 @@ class OdooRecord(object):
         if self.id:
             self._model.unlink(self.id)
             self._model._cache.pop(self.id, None)
+        self.id = None

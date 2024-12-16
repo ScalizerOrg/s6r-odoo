@@ -165,7 +165,11 @@ partner_tag_values_list = [{'name': f"TAG {i}", 'color': i} for i in range(10)]
 partner_tag_ids = odoo.model('res.partner.category').values_list_to_records(partner_tag_values_list)
 #load the records without xmlid
 for partner_tag in partner_tag_ids:
-    partner_tag.computed_value = True
+    partner_tag.computed_value = partner_tag.color % 2 == 0
+
+filtered_tag_ids = partner_tag_ids.filtered(lambda x: x.computed_value)
+filtered_tag_ids2 = partner_tag_ids.filtered(computed_value=True, name='TAG 8')
+
 partner_tag_ids.save()
 partner_tag_ids.unlink()
 
@@ -174,3 +178,11 @@ partner_tag_ids2 = odoo.model('res.partner.category').values_list_to_records(par
 #load the records with xmlid
 partner_tag_ids2.save()
 partner_tag_ids2.unlink()
+
+## TODO
+# partner_id = odoo.model('res.partner').new({'name': 'Test partner'})
+# partner_values_list = [{'name': f"PARTNER {i}", 'partner_id': partner_id.id} for i in range(10)]
+# partner_ids = odoo.model('res.partner').new(partner_values_list)
+# partner_ids = odoo.new('res.partner', partner_values_list)
+# country_ids = filtered_tag_ids.mapped('partner_id.country_id')
+

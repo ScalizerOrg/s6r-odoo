@@ -63,7 +63,6 @@ class OdooModel(object):
 
         return self._odoo.read(self.model_name, ids, fields, context)
 
-
     def _read(self, ids, fields=None, context=None, no_cache=False):
         return self._odoo._read(self.model_name, ids, fields, context)
 
@@ -76,8 +75,8 @@ class OdooModel(object):
     def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         return self._odoo.read_group(self.model_name, domain, fields, groupby, offset, limit, orderby, lazy, context)
 
-    def search(self, domain=[], fields=[], order="", offset=0, limit=0, context=None):
-        return self._odoo.search(self.model_name, domain, fields, order, offset, limit, context)
+    def search(self, domain=[], fields=[], order="", offset=0, limit=0, context=None, **kwargs):
+        return self._odoo.search(self.model_name, domain, fields, order, offset, limit, context, **kwargs)
 
     def search_ids(self, domain=[], fields=[], order="", offset=0, limit=0, context=None):
         return self._odoo.search_ids(self.model_name, domain, fields, order, offset, limit, context)
@@ -152,3 +151,6 @@ class OdooModel(object):
         ir_model_datas = list(filter(lambda x: x.res_id == res_id, self._xmlid_cache))
         if ir_model_datas:
             return '{0}.{1}'.format(ir_model_datas[0].module, ir_model_datas[0].name)
+
+    def get_field(self, field):
+        return self.load_field_description(field)
