@@ -179,6 +179,24 @@ partner_tag_ids2 = odoo.model('res.partner.category').values_list_to_records(par
 partner_tag_ids2.save()
 partner_tag_ids2.unlink()
 
+data_ids = odoo.search_ir_model_data([('module', '=', 'base')])
+models = data_ids.mapped('model')
+logger.info('Models : %s', ', '.join(models))
+
+partner_ids = odoo.model('res.partner').search([], fields=['country_id', 'name'])
+country_codes = partner_ids.mapped('country_id.code')
+logger.info('Country codes : %s', ', '.join(country_codes))
+
+data_ids = odoo.search_ir_model_data([('module', '=', 'base')])
+if data_ids:
+    models = data_ids.mapped('model')
+    for model in models:
+        model_data_ids = data_ids.filtered(model=model)
+        record_ids = odoo.model(model).read(model_data_ids.mapped('res_id'))
+        logger.info(record_ids)
+        break
+
+
 ## TODO
 # partner_id = odoo.model('res.partner').new({'name': 'Test partner'})
 # partner_values_list = [{'name': f"PARTNER {i}", 'partner_id': partner_id.id} for i in range(10)]

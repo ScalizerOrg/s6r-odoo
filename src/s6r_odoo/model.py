@@ -22,6 +22,12 @@ class OdooModel(object):
     def __repr__(self):
         return str(self)
 
+    def __hash__(self):
+        return hash(self.model_name)
+
+    def __eq__(self, other):
+        return self.model_name == other.model_name
+
     def _update_cache(self,record_id, values):
         self._cache[record_id] = values
 

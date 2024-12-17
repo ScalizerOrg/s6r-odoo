@@ -84,6 +84,14 @@ class OdooRecord(object):
             return self.__setattr__(key, value)
         return super().__setitem__(key, value)
 
+    def __hash__(self):
+        return hash((self.id, self._model))
+
+    def __eq__(self, other):
+        if hasattr(other, 'id') and hasattr(other, '_model'):
+            return self.id == other.id and self._model == other._model
+        return super().__eq__(other)
+
     def _update_cache(self):
         if self._model:
             self._model._update_cache(self._values['id'], self._values)
@@ -102,6 +110,8 @@ class OdooRecord(object):
             #handling relation to other record
             if isinstance(value, list) and len(value) == 2:
                 field = self._model.get_field(key)
+                if not field.get('relation'):
+                    continue
                 model = OdooModel(self._odoo, field.get('relation'))
                 super().__setattr__(key, OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model))
             else:

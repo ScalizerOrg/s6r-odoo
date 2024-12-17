@@ -1,6 +1,7 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
 
+from .record import OdooRecord
 
 class OdooRecordSet(set):
     _odoo = None
@@ -43,5 +44,18 @@ class OdooRecordSet(set):
 
     def filtered(self, func=None, **kwargs):
         if func:
-            return [r for r in self if func(r)]
-        return [r for r in self if all(getattr(r, k) == v for k, v in kwargs.items())]
+            res = [r for r in self if func(r)]
+        else:
+            res = [r for r in self if all(getattr(r, k) == v for k, v in kwargs.items())]
+        return OdooRecordSet(res, model=self._model)
+
+    def mapped(self, path):
+        res = []
+        parents = self
+        for field in path.split('.'):
+            res = set([getattr(r, field) for r in parents if r])
+            parents = res
+        res = list(res)
+        if res and isinstance(res[0], OdooRecord):
+            return OdooRecordSet(res, model=res[0]._model)
+        return res
