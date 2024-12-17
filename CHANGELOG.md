@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-   - Allows to use filtered function on record set
+   - Allows to use 'filtered' and 'mapped' functions on record set
    - Introduce '_xmlid' property on record
    - Add exclude_fields parameter to search function
 
