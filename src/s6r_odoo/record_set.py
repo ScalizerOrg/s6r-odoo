@@ -3,7 +3,7 @@
 
 from .record import OdooRecord
 
-class OdooRecordSet(set):
+class OdooRecordSet(list):
     _odoo = None
     _model = None
 
