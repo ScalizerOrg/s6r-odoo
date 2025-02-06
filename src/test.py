@@ -11,8 +11,8 @@ def get_random_string(length):
 
 logging.basicConfig()
 logger = logging.getLogger("test")
-odoo = OdooConnection(url='http://odoo_digitalportage2.localhost',
-                          dbname='digitalportage_prod',
+odoo = OdooConnection(url='http://odoo_project.localhost',
+                          dbname='project',
                           user='admin',
                           password='admin', debug_xmlrpc=False, logger=logger)
 
@@ -196,6 +196,13 @@ if data_ids:
         logger.info(record_ids)
         break
 
+data_users = [{'id': f'external_config.user_test_01',
+               'name': 'Lastname Firstname TEST1', 'login': 'test1@test.fr',
+               'title.id': 1, 'company_ids.id': [1, 3], 'active': True},
+              {'id': f'external_config.user_test_02',
+               'name': 'Lastname Firstname TEST2', 'login': 'test2@test.fr',
+               'title.id': 1, 'company_ids.id': [1, 3], 'active': True}]
+odoo.model('res.users').load_batch(data_users)
 
 ## TODO
 # partner_id = odoo.model('res.partner').new({'name': 'Test partner'})

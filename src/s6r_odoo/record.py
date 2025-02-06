@@ -140,9 +140,10 @@ class OdooRecord(object):
             return res[0]
 
     def save(self):
-        if '/id' in self._values:
-            self._values['id'] = self._values.get('/id')
-            self._values.pop('/id')
+        xml_id = self._values.get('/id') or self._values.get('id', False)
+        if isinstance(xml_id, str):
+            self._values['id'] = xml_id
+            self._values.pop('/id', None)
             res = self._model.load(list(self._values.keys()), [list(self._values.values())])
             if res.get('ids'):
                 self.id = res.get('ids')[0]

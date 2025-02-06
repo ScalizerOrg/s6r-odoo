@@ -347,6 +347,18 @@ class OdooConnection:
             self.logger.error("%s : %s" % (message.get('record', False), message['message']))
         return res
 
+    def prepare_load_batch_datas(self, datas):
+        batch_keys = list(datas[0].keys())
+        for values in datas:
+            for key in batch_keys:
+                if key.endswith('.id') and isinstance(values.get(key), list):
+                    values[key] = ','.join([str(v) for v in values.get(key)]) if values.get(key) else ''
+                if key.endswith('.id') and isinstance(values.get(key), int):
+                    values[key] = str(values.get(key))
+                if isinstance(values[key], bool):
+                    values[key] = '1' if values[key] else '0'
+        return datas
+
     def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
         context = self.context | context if context else self.context
         if not datas:
@@ -361,6 +373,7 @@ class OdooConnection:
             except ValueError:
                 self.logger.warning(f"\"{field}\" field name not found in data keys")
         load_datas = [[]]
+        datas = self.prepare_load_batch_datas(datas)
         for cc, data in enumerate(datas):
             if len(load_datas[-1]) >= batch_size:
                 load_datas.append([])
