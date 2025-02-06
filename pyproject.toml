@@ -24,4 +24,5 @@ dev = ["twine", "bumpver", "pip-tools", "pytest", "check-manifest"]
 
 [project.urls]
 Homepage = "https://github.com/ScalizerOrg/s6r-odoo"
+Changelog = "https://github.com/ScalizerOrg/s6r-odoo/blob/main/CHANGELOG.md"
 
