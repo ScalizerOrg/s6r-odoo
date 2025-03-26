@@ -55,6 +55,8 @@ class OdooRecord(object):
             return self.super().__getattr__(name)
         if not self._model:
             return self.super().__getattr__(name)
+        if name == 'get':
+            return self._values.get
         if name not in self._values:
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
