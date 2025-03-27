@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
- - Breaking change: with limit=1, **search** method returns a single record instead of not a recordset, unless setting legacy=True
+ - Breaking change: with limit=1, **search** method returns a single record instead of a recordset, unless setting legacy=True
  - Improve remote error loging and add no_log option
 
 ## [2.0.5] - 2025-03-25
