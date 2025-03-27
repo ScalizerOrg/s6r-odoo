@@ -152,7 +152,7 @@ class OdooConnection:
             else:
                 self.method_count[method][model] += 1
 
-    def execute_odoo(self, *args, no_raise=False):
+    def execute_odoo(self, *args, no_raise=False, no_log=False):
         model = args[0]
         method = args[1]
         self.query_counter_update(model, method)
@@ -169,9 +169,14 @@ class OdooConnection:
         except Exception as e:
             if no_raise:
                 pass
-            else:
+
+            if not no_log:
                 self.logger.error(pformat(args))
-                self.logger.error(e)
+                if hasattr(e, 'faultString'):
+                    self.logger.error(e.faultString)
+                else:
+                    self.logger.error(e)
+            if not no_raise:
                 raise e
 
     def values_to_record(self, model_name, values, update_cache=True):
@@ -323,6 +328,8 @@ class OdooConnection:
             fields = [f for f in fields if f not in exclude_fields]
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
+        if res and limit==1 and not self._legacy and not 'legacy' in kwargs:
+            return self.values_list_to_records(model, res)[0]
         return self.values_list_to_records(model, res)
 
     def search_ids(self, model, domain=[], order="", offset=0, limit=0, context=None):

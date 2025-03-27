@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-03-27
+
+### Added
+
+ - Breaking change: with limit=1, **search** method returns a single record instead of not a recordset, unless setting legacy=True
+ - Improve remote error loging and add no_log option
+
 ## [2.0.5] - 2025-03-25
 
 ### Added
