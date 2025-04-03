@@ -235,13 +235,15 @@ class OdooConnection:
         return self.execute_odoo('ir.model.data', object_reference, xml_id.split('.'), no_raise=no_raise)
 
 
-    def get_object_reference(self, xml_id, no_raise=False):
+    def get_object_reference(self, xml_id, no_raise=False, cache_only=False):
         if self._legacy:
             return self.get_object_reference_legacy(xml_id, no_raise=no_raise)
 
         ref = self._get_object_reference_cache(xml_id)
         if ref:
             return ref
+        if cache_only:
+            return
         module, name = xml_id.split('.')
         domain = [('module', '=', module), ('name', '=', name)]
         res = self.search_ir_model_data(domain)
@@ -249,12 +251,11 @@ class OdooConnection:
             ir_model_data_id = res[0]
             return [ir_model_data_id.model, ir_model_data_id.res_id]
 
-    def get_id_from_xml_id(self, xml_id, no_raise=False):
+    def get_id_from_xml_id(self, xml_id, no_raise=False, cache_only=False):
         if '.' not in xml_id:
             xml_id = "external_config." + xml_id
         try:
-
-            res = self.get_object_reference(xml_id, no_raise=no_raise)
+            res = self.get_object_reference(xml_id, no_raise=no_raise, cache_only=cache_only)
             return res[1] if res else False
         except xmlrpc.client.Fault as fault:
             if no_raise:
@@ -272,10 +273,12 @@ class OdooConnection:
             model, res_id = object_reference
             return self.model(model).read(res_id, fields=fields, no_cache=no_cache)
 
-    def get_xml_id_from_id(self, model, res_id):
+    def get_xml_id_from_id(self, model, res_id, cache_only=False):
         cache_xmlid = self._get_xmlid_cache(model, res_id)
         if cache_xmlid:
             return cache_xmlid
+        if cache_only:
+            return
         try:
             domain = [('model', '=', model), ('res_id', '=', res_id)]
             res = self.search_ir_model_data(domain)

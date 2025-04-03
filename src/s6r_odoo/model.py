@@ -49,8 +49,8 @@ class OdooModel(object):
     def search_get_id(self, domain):
         return self._odoo.get_search_id(self.model_name, domain)
 
-    def get_xml_id_from_id(self, xml_id):
-        return self._odoo.get_xml_id_from_id(self.model_name, xml_id)
+    def get_xml_id_from_id(self, xml_id, cache_only=False):
+        return self._odoo.get_xml_id_from_id(self.model_name, xml_id, cache_only=cache_only)
 
     def read(self, ids, fields=None, context=None, no_cache=False):
         if not ids:
