@@ -4,6 +4,7 @@
 import base64
 from datetime import datetime
 import logging
+import time
 import ssl
 import os
 import sys
@@ -152,7 +153,7 @@ class OdooConnection:
             else:
                 self.method_count[method][model] += 1
 
-    def execute_odoo(self, *args, no_raise=False, no_log=False):
+    def execute_odoo(self, *args, no_raise=False, no_log=False, retry=0):
         model = args[0]
         method = args[1]
         self.query_counter_update(model, method)
@@ -166,6 +167,22 @@ class OdooConnection:
         try:
             res = self.object.execute_kw(self._dbname, self.uid, self._password, *args)
             return res
+        except ConnectionResetError as e:
+            if not retry:
+                self.logger.info("Retry #1 to connect to Odoo...")
+                time.sleep(1)
+                self._prepare_connection()
+                return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=1)
+            elif retry == 1:
+                self.logger.info("Retry #2 to connect to Odoo...")
+                time.sleep(5)
+                self._prepare_connection()
+                return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=5)
+            else:
+                self.logger.error("Max connection retry reached.", exc_info=True)
+                if not no_raise:
+                    raise
+
         except Exception as e:
             if no_raise:
                 pass
@@ -188,6 +205,8 @@ class OdooConnection:
         return record
 
     def values_list_to_records(self, model_name, val_list, update_cache=True):
+        if val_list is None:
+            val_list = []
         if self._legacy:
             return val_list
         records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
@@ -199,7 +218,8 @@ class OdooConnection:
             return OdooRecordSet(records, model=self.model(model_name))
 
     def get_ref(self, external_id):
-        res = self.get_object_reference(external_id)[1]
+        object_ref = self.get_object_reference(external_id)
+        res = object_ref[1] if object_ref else False
         self.logger.debug('Get ref %s > %s' % (external_id, res))
         return res
 
@@ -369,7 +389,8 @@ class OdooConnection:
                     values[key] = '1' if values[key] else '0'
         return datas
 
-    def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
+    def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, **kwargs):
+        ignore_fields = kwargs.get('ignore_fields', [])
         context = self.context | context if context else self.context
         if not datas:
             return
