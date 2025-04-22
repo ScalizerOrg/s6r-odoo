@@ -13,7 +13,7 @@ def get_random_string(length):
 
 
 @pytest.mark.skip(reason='legacy test to be rewritten')
-def test_legacy_michel(odoo):
+def test_local(odoo):
     logging.basicConfig()
     logger = logging.getLogger("test")
 
