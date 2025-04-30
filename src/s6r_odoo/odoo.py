@@ -167,17 +167,17 @@ class OdooConnection:
         try:
             res = self.object.execute_kw(self._dbname, self.uid, self._password, *args)
             return res
-        except ConnectionResetError as e:
+        except (ConnectionResetError, xmlrpc.client.ProtocolError) as e:
             if not retry:
                 self.logger.info("Retry #1 to connect to Odoo...")
-                time.sleep(1)
+                time.sleep(5)
                 self._prepare_connection()
                 return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=1)
             elif retry == 1:
                 self.logger.info("Retry #2 to connect to Odoo...")
-                time.sleep(5)
+                time.sleep(10)
                 self._prepare_connection()
-                return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=5)
+                return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=2)
             else:
                 self.logger.error("Max connection retry reached.", exc_info=True)
                 if not no_raise:
