@@ -165,18 +165,18 @@ class OdooConnection:
         self.logger.debug("\t " + "%s " * (len(args) - 2) % args[2:])
         self.logger.debug("*" * 50)
         try:
+            if retry:
+                self._prepare_connection()
             res = self.object.execute_kw(self._dbname, self.uid, self._password, *args)
             return res
-        except (ConnectionResetError, xmlrpc.client.ProtocolError) as e:
+        except (ConnectionResetError, ConnectionError, xmlrpc.client.ProtocolError) as e:
             if not retry:
                 self.logger.info("Retry #1 to connect to Odoo...")
                 time.sleep(5)
-                self._prepare_connection()
                 return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=1)
             elif retry == 1:
                 self.logger.info("Retry #2 to connect to Odoo...")
                 time.sleep(10)
-                self._prepare_connection()
                 return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=2)
             else:
                 self.logger.error("Max connection retry reached.", exc_info=True)
@@ -191,6 +191,12 @@ class OdooConnection:
                 self.logger.error(pformat(args))
                 if hasattr(e, 'faultString'):
                     self.logger.error(e.faultString)
+                    if 'InterfaceError: cursor already closed' in e.faultString:
+                        if retry > 5:
+                            raise e
+                        self.logger.info("Retry to connect to Odoo...")
+                        time.sleep(5)
+                        return self.execute_odoo(*args, no_raise=no_raise, no_log=no_log, retry=retry+1)
                 else:
                     self.logger.error(e)
             if not no_raise:
@@ -411,18 +417,20 @@ class OdooConnection:
             load_datas[-1].append([data[i] for i in load_keys])
 
         cc = 0
+        res = {'ids': [], 'messages': []}
         for load_data in load_datas:
             start_batch = datetime.now()
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
-            res = self.load(model, load_keys, load_data, context=context)
+            load_res = self.load(model, load_keys, load_data, context=context)
+            res['ids'].extend(load_res['ids'])
+            res['messages'].extend(load_res['messages'])
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
                         self.logger.error("record : %s" % (message['record']))
                     if message.get('message'):
                         self.logger.error("message : %s" % (message['message']))
-                    # raise Exception(message['message'])
                 else:
                     self.logger.info(message)
             stop_batch = datetime.now()

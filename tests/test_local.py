@@ -1,28 +1,29 @@
-import pytest
 import logging
 import time
 import random
 import string
-
-from ._fixtures import *
-
+from src.s6r_odoo import OdooConnection
 
 def get_random_string(length):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for _ in range(length))
 
 
-@pytest.mark.skip(reason='legacy test to be rewritten')
-def test_local(odoo):
+def test_local():
     logging.basicConfig()
     logger = logging.getLogger("test")
 
+    odoo = OdooConnection(url='http://odoo_project.localhost',
+                          dbname='project',
+                          user='admin',
+                          password='admin', debug_xmlrpc=False, logger=logger)
+
     xmlid_dict = odoo.model('ir.module.module').get_xmlid_dict()
-    # logger.info('ir.module.module XMLIDs : %s', xmlid_dict)
-    id_ref_dict = odoo.model('ir.module.module').get_id_ref_dict()
-    # logger.info('ir.module.module ID refs : %s', id_ref_dict)
+    logger.info('ir.module.module XMLIDs : %s', xmlid_dict)
+    id_ref_dict = odoo.model('ir.module.module').get_id_ref0_dict()
+    logger.info('ir.module.module ID refs : %s', id_ref_dict)
     ir_model_data = odoo.model('ir.module.module').get_ir_model_data()
-    # logger.info('ir.module.module ir_model_data : %s', ir_model_data)
+    logger.info('ir.module.module ir_model_data : %s', ir_model_data)
 
     object_reference = odoo.get_object_reference('base.module_account')
     logger.info("base.module_account get_object_reference --> ['ir.module.module', id] : %s", object_reference)
@@ -133,8 +134,8 @@ def test_local(odoo):
     if partner_ids:
         partner_ids.unlink()
 
-    new_partner_values_list = [{'name': "TO_REMOVE", 'website': get_random_string(8)} for i in range(50)]
-    new_partner_ids = odoo.model('res.partner').create(new_partner_values_list)
+    new_partner_values_list = [{'name': "TO_REMOVE", 'website': get_random_string(8)} for i in range(5000)]
+    new_partner_ids = odoo.model('res.partner').load_batch(new_partner_values_list)
     new_partner_ids.unlink()
 
     odoo.print_query_count()
@@ -203,3 +204,6 @@ def test_local(odoo):
                    'name': 'Lastname Firstname TEST2', 'login': 'test2@test.fr',
                    'title.id': 1, 'company_ids.id': [1, 3], 'active': True}]
     odoo.model('res.users').load_batch(data_users)
+
+if __name__ == '__main__':
+    test_local()

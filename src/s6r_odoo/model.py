@@ -96,8 +96,8 @@ class OdooModel(object):
     def load(self, load_keys, load_data, context=None):
         return self._odoo.load(self.model_name, load_keys, load_data, context)
 
-    def load_batch(self, data, batch_size=100, skip_line=0, context=None, ignore_fields=[]):
-        return self._odoo.load_batch(self.model_name, data, batch_size, skip_line, context, ignore_fields)
+    def load_batch(self, data, batch_size=100, skip_line=0, context=None, **kwargs):
+        return self._odoo.load_batch(self.model_name, data, batch_size, skip_line, context, **kwargs)
 
     def write(self, ids, values, context=None):
         return self._odoo.write(self.model_name, ids, values, context)
