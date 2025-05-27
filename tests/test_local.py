@@ -20,7 +20,7 @@ def test_local():
 
     xmlid_dict = odoo.model('ir.module.module').get_xmlid_dict()
     logger.info('ir.module.module XMLIDs : %s', xmlid_dict)
-    id_ref_dict = odoo.model('ir.module.module').get_id_ref0_dict()
+    id_ref_dict = odoo.model('ir.module.module').get_id_ref_dict()
     logger.info('ir.module.module ID refs : %s', id_ref_dict)
     ir_model_data = odoo.model('ir.module.module').get_ir_model_data()
     logger.info('ir.module.module ir_model_data : %s', ir_model_data)

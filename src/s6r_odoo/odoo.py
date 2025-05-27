@@ -423,8 +423,8 @@ class OdooConnection:
             self.logger.info("\t\t* %s : %s-%s/%s" % (model, skip_line + cc, skip_line + cc + len(load_data), skip_line + cc_max))
             cc += len(load_data)
             load_res = self.load(model, load_keys, load_data, context=context)
-            res['ids'].extend(load_res.get('ids', []))
-            res['messages'].extend(load_res.get('messages', []))
+            res['ids'].extend(load_res.get('ids', []) or [])
+            res['messages'].extend(load_res.get('messages', []) or [])
             for message in res['messages']:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
