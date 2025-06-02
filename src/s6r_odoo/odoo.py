@@ -477,18 +477,18 @@ class OdooConnection:
 
     def get_id_ref_dict(self, model):
         """
-        Returns a dict with xmlid as key and id as value
+        Returns a dict with id as key and xmlid as value
         :param model: Model name
-        :return: {'base.module_account': 894, ...}
+        :return: {894: 'base.module_account', ...}
         """
         model_datas = self.get_ir_model_data(model)
         return dict([(data.res_id, '%s.%s' % (data.module, data.name)) for data in model_datas])
 
     def get_xmlid_dict(self, model):
         """
-        Returns a dict with id as key and xmlid as value
+        Returns a dict with xmlid as key and id as value
         :param model: Model name
-        :return: {894: 'base.module_account', ...}
+        :return: {'base.module_account': 894, ...}
         """
         model_datas = self.get_ir_model_data(model)
         return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
