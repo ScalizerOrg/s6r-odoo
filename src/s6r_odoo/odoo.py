@@ -216,12 +216,7 @@ class OdooConnection:
         if self._legacy:
             return val_list
         records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
-        if not records:
-            return []
-        if len(records) == 1:
-            return records
-        else:
-            return OdooRecordSet(records, model=self.model(model_name))
+        return OdooRecordSet(records, model=self.model(model_name))
 
     def get_ref(self, external_id):
         object_ref = self.get_object_reference(external_id)
