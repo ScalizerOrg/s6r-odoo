@@ -25,7 +25,6 @@ METHODE_MAPPING = {
 
 class OdooConnection:
     _context = {'lang': 'fr_FR', 'noupdate': True}
-    _models = {}
     query_count = 0
     method_count = {}
 
@@ -51,6 +50,7 @@ class OdooConnection:
         if createdb:
             self._create_db()
         self._prepare_connection()
+        self._models = {}
 
     def __str__(self):
         return 'OdooConnection(%s)' % self._dbname
