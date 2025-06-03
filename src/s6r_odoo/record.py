@@ -131,7 +131,6 @@ class OdooRecord(object):
             # check if all fields are in res dict
             if any(field not in res for field in fields):
                 res.update(self._read(fields))
-
             self.set_values(res)
         else:
             if not fields:
@@ -159,7 +158,8 @@ class OdooRecord(object):
             self._updated_values = {}
         else:
             self.id = self._odoo.create(self._model.model_name, self._values)[0].id
-            self._initialized_fields = list(self._values.keys())
+        #initialized_fields should only contain existing field names (e.g. no field names like 'user_id/id')
+        self._initialized_fields = [k.replace('/id','') for k in self._values.keys()]
 
     def write(self, values):
         self._model.write(self.id, values)
