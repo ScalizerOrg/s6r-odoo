@@ -19,10 +19,12 @@ class OdooRecordSet(list):
         else:
             return self.super().__getattr__(name)
 
-    def save(self, batch_size=100, skip_line=0, ignore_fields=[]):
+    def save(self, batch_size=100, skip_line=0, ignore_fields=None, context=None):
+        ignore_fields = ignore_fields or []
+
         values_list = [r.get_update_values() for r in self]
         res = self._model.load_batch(values_list, batch_size=batch_size,skip_line=skip_line,
-                                     ignore_fields=ignore_fields)
+                                     ignore_fields=ignore_fields, context=context)
         res_ids = res.get('ids', False)
         if not res_ids:
             return False
