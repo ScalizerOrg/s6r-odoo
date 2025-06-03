@@ -110,13 +110,16 @@ class OdooRecord(object):
             self._update_cache()
         for key in values:
             value = values[key]
-            #handling relation to other record
-            if isinstance(value, list) and len(value) == 2:
-                field = self._model.get_field(key)
+            #handling relation fields
+            if isinstance(value, list):
+                field = self._model.get_field(key.replace('/id',''))
                 if not field.get('relation'):
                     continue
                 model = OdooModel(self._odoo, field.get('relation'))
-                super().__setattr__(key, OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model))
+                if field.get('type') == 'many2one':
+                    super().__setattr__(key, OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model))
+                else: #one2many or many2many
+                    super().__setattr__(key, self._odoo.values_list_to_records(field.get('relation'), [{'id':val} for val in value]))
             else:
                 super().__setattr__(key, value)
 
