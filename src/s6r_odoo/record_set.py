@@ -29,7 +29,17 @@ class OdooRecordSet(list):
         if not res_ids:
             return False
         for i, r in enumerate(self):
-            r._updated_values = {}
+            #remove from updated values the fields that have been updated
+            r._updated_values = {k:v for k,v in r._updated_values.items() if k in ignore_fields}
+
+            #ideally, '/id' should never end up in _values, WIP
+            if '/id' in r._values:
+                r._values.pop('/id')
+            # initialized_fields should only contain existing field names (e.g. no field names like 'user_id/id')
+            r._initialized_fields.extend([k.replace('/id','') for k in r._values.keys() if k not in ignore_fields])
+            #remove duplicates
+            r._initialized_fields = list(set(r._initialized_fields))
+
             if not r.id:
                 r.id = res_ids[i]
         return True
