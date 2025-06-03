@@ -104,18 +104,22 @@ class OdooRecord(object):
             self._updated_values = values
 
         #remove '/id' key so it is stored in _values but will not end up in attributes
-        self._xmlid = values.pop('/id', None)
+        if values.get('/id'):
+            self._xmlid = values.pop('/id')
         if self._model and update_cache:
             self._update_cache()
         for key in values:
             value = values[key]
-            #handling relation to other record
-            if isinstance(value, list) and len(value) == 2:
-                field = self._model.get_field(key)
+            #handling relation fields
+            if isinstance(value, list):
+                field = self._model.get_field(key.replace('/id',''))
                 if not field.get('relation'):
                     continue
                 model = OdooModel(self._odoo, field.get('relation'))
-                super().__setattr__(key, OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model))
+                if field.get('type') == 'many2one':
+                    super().__setattr__(key, OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model))
+                else: #one2many or many2many
+                    super().__setattr__(key, self._odoo.values_list_to_records(field.get('relation'), [{'id':val} for val in value]))
             else:
                 super().__setattr__(key, value)
 
@@ -127,7 +131,6 @@ class OdooRecord(object):
             # check if all fields are in res dict
             if any(field not in res for field in fields):
                 res.update(self._read(fields))
-
             self.set_values(res)
         else:
             if not fields:
@@ -155,7 +158,8 @@ class OdooRecord(object):
             self._updated_values = {}
         else:
             self.id = self._odoo.create(self._model.model_name, self._values)[0].id
-            self._initialized_fields = list(self._values.keys())
+        #initialized_fields should only contain existing field names (e.g. no field names like 'user_id/id')
+        self._initialized_fields = [k.replace('/id','') for k in self._values.keys()]
 
     def write(self, values):
         self._model.write(self.id, values)

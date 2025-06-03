@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Added
+
+   - values_list_to_records now always returns an OdooRecordSet, even if empty
+   - support for One2many and Many2many fields in OdooRecord
+### Fixed
+   
+   - Concurrent OdooConnections have their own cache now
+   - Record without id are not stored in cache anymore, this prevents having a 'False' key in _cache dict
+   - Prevent OdooRecord _xmlid attribute to be overridden with 'None' in some cases
+   - Prevent '/id' suffix to ends up in '_initialized_fields' when records are created manually from values dict then saved.
+
 ## [2.1.6] - 2025-05-27
 
 ### Fixed
