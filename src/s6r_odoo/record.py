@@ -104,7 +104,8 @@ class OdooRecord(object):
             self._updated_values = values
 
         #remove '/id' key so it is stored in _values but will not end up in attributes
-        self._xmlid = values.pop('/id', None)
+        if values.get('/id'):
+            self._xmlid = values.pop('/id')
         if self._model and update_cache:
             self._update_cache()
         for key in values:
