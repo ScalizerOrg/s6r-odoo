@@ -419,8 +419,9 @@ class OdooConnection:
             cc += len(load_data)
             load_res = self.load(model, load_keys, load_data, context=context)
             res['ids'].extend(load_res.get('ids', []) or [])
-            res['messages'].extend(load_res.get('messages', []) or [])
-            for message in res['messages']:
+            messages = load_res.get('messages', [])
+            res['messages'].extend(messages)
+            for message in messages:
                 if message.get('type') in ['warning', 'error']:
                     if message.get('record'):
                         self.logger.error("record : %s" % (message['record']))
