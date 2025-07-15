@@ -297,7 +297,9 @@ class OdooConnection:
         object_reference = self.get_object_reference(ixml_id, no_raise=no_raise)
         if len(object_reference) == 2:
             model, res_id = object_reference
-            return self.model(model).read(res_id, fields=fields, no_cache=no_cache)
+            res = self.model(model).read(res_id, fields=fields, no_cache=no_cache)
+            res._xmlid = ixml_id
+            return res
 
     def get_xml_id_from_id(self, model, res_id, cache_only=False):
         cache_xmlid = self._get_xmlid_cache(model, res_id)

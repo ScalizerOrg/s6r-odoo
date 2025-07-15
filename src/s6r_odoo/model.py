@@ -32,7 +32,7 @@ class OdooModel(object):
         self._cache[record_id] = values
 
     def values_to_record(self, values, update_cache=True):
-        if update_cache:
+        if update_cache and 'id' in values and isinstance(values['id'], int):
             self._update_cache(values['id'], values)
         return self._odoo.values_to_record(self.model_name, values, update_cache=False)
 
