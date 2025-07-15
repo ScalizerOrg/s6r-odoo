@@ -142,11 +142,9 @@ class OdooRecord(object):
             return res[0]
 
     def save(self):
-        xml_id = self._values.get('/id') or self._values.get('id', False)
-        if isinstance(xml_id, str):
-            self._values['id'] = xml_id
-            self._values.pop('/id', None)
-            res = self._model.load(list(self._values.keys()), [list(self._values.values())])
+        values = self.get_update_values()
+        if self._xmlid:
+            res = self._model.load(list(values.keys()), [list(values.values())])
             if res.get('ids'):
                 self.id = res.get('ids')[0]
             return
@@ -166,10 +164,21 @@ class OdooRecord(object):
         self.read(self._initialized_fields, no_cache=True)
 
     def get_update_values(self):
-        values = self._updated_values
+        if '/id' in self._values:
+            self._xmlid = self._values['/id']
+            self._values.pop('/id', None)
+
+        value_id = self._values.get('id', False)
+        if isinstance(value_id, str):
+            self._xmlid = value_id
+            self.id = None
+            self._values['id'] = None
+
         if self.id:
+            values = self._updated_values
             values['.id'] = self.id
         else:
+            values = self._values
             if self._xmlid:
                 values['id'] = self._xmlid
             else:
