@@ -503,11 +503,16 @@ class OdooConnection:
     def get_fields(self, model, fields=None, attributes=None):
         if model in self._models and self._models[model]._fields and not fields and not attributes:
             return self._models[model]._fields
+        if model in self._models and self._models[model]._fields and fields:
+            return {f:self._models[model]._fields[f] for f in fields if f in self._models[model]._fields}
         params = [fields or []]
         if attributes:
             params.append(attributes)
 
-        return self.execute_odoo(model, 'fields_get', params)
+        res_fields = self.execute_odoo(model, 'fields_get', params)
+        if not fields and not self._models[model]._fields_loaded:
+            self._models[model]._fields = res_fields
+        return res_fields
 
     def _get_xmlid_cache(self, model, res_id):
         if not 'ir.model.data' in self._models:

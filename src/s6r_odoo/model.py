@@ -163,4 +163,8 @@ class OdooModel(object):
             return '{0}.{1}'.format(ir_model_datas[0].module, ir_model_datas[0].name)
 
     def get_field(self, field):
-        return self.load_field_description(field)
+        if not self._fields_loaded:
+            self.load_fields_description()
+        if field in self._fields:
+            return self._fields[field]
+
