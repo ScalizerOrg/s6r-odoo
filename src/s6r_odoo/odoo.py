@@ -25,7 +25,6 @@ METHODE_MAPPING = {
 
 class OdooConnection:
     _context = {'lang': 'fr_FR', 'noupdate': True}
-    _models = {}
     query_count = 0
     method_count = {}
 
@@ -51,6 +50,7 @@ class OdooConnection:
         if createdb:
             self._create_db()
         self._prepare_connection()
+        self._models = {}
 
     def __str__(self):
         return 'OdooConnection(%s)' % self._dbname
@@ -216,12 +216,7 @@ class OdooConnection:
         if self._legacy:
             return val_list
         records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
-        if not records:
-            return []
-        if len(records) == 1:
-            return records
-        else:
-            return OdooRecordSet(records, model=self.model(model_name))
+        return OdooRecordSet(records, model=self.model(model_name))
 
     def get_ref(self, external_id):
         object_ref = self.get_object_reference(external_id)
@@ -478,18 +473,18 @@ class OdooConnection:
 
     def get_id_ref_dict(self, model):
         """
-        Returns a dict with xmlid as key and id as value
+        Returns a dict with id as key and xmlid as value
         :param model: Model name
-        :return: {'base.module_account': 894, ...}
+        :return: {894: 'base.module_account', ...}
         """
         model_datas = self.get_ir_model_data(model)
         return dict([(data.res_id, '%s.%s' % (data.module, data.name)) for data in model_datas])
 
     def get_xmlid_dict(self, model):
         """
-        Returns a dict with id as key and xmlid as value
+        Returns a dict with xmlid as key and id as value
         :param model: Model name
-        :return: {894: 'base.module_account', ...}
+        :return: {'base.module_account': 894, ...}
         """
         model_datas = self.get_ir_model_data(model)
         return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
