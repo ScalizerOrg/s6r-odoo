@@ -507,7 +507,7 @@ class OdooConnection:
             params.append(attributes)
 
         res_fields = self.execute_odoo(model, 'fields_get', params)
-        if not fields and not self._models[model]._fields_loaded:
+        if not fields and model in self._models and not self._models[model]._fields_loaded:
             self._models[model]._fields = res_fields
         return res_fields
 
