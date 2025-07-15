@@ -355,6 +355,12 @@ class OdooConnection:
         if 'exclude_fields' in kwargs:
             exclude_fields = kwargs['exclude_fields']
             fields = [f for f in fields if f not in exclude_fields]
+        if not fields:
+            model_fields = self.get_fields(model)
+            if len(model_fields) > 20:
+                self.logger.warning(
+                    f"You are trying to search and read {len(model_fields)} fields for model {model}"
+                    "\nThis might slow down your script, consider using fields parameter.")
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         if res and limit==1 and not self._legacy and not 'legacy' in kwargs:

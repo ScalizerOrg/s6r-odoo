@@ -57,6 +57,10 @@ class OdooModel(object):
             return []
         if not fields:
             fields = self.get_fields_list()
+            if len(fields) > 20:
+                self._odoo.logger.warning(
+                    f"You are trying to read {len(fields)} fields for model {self.model_name} id: {str(ids)}"
+                    "\nThis might slow down your script, consider using fields parameter.")
         if isinstance(ids, int):
             if not no_cache:
                 cache_record = self._get_cache(ids)
