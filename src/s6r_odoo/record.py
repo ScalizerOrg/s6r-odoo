@@ -119,7 +119,6 @@ class OdooRecord(object):
                 if not field.get('relation'):
                     continue
                 model = OdooModel(self._odoo, field.get('relation'))
-                record = OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model)
                 if field.get('type') == 'many2one':
                     record = OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model)
                 else: #one2many or many2many
@@ -137,6 +136,15 @@ class OdooRecord(object):
                 super().__setattr__(field_name, record)
                 related_values[f'{field_name}.id'] = record.id
                 self._values.pop(key, None)
+            elif key.endswith('.id') and isinstance(value, int):
+                field_name = key[:-3]
+                field = self._model.get_field(field_name)
+                if not field.get('relation'):
+                    continue
+                model = OdooModel(self._odoo, field.get('relation'))
+                record = OdooRecord(self._odoo, model, {'id': value}, field_name, self._model)
+                super().__setattr__(field_name, record)
+                related_values[f'{field_name}.id'] = record.id
             else:
                 super().__setattr__(key, value)
         self._values.update(related_values)
