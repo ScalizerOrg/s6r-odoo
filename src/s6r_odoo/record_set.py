@@ -19,15 +19,27 @@ class OdooRecordSet(list):
         else:
             return self.super().__getattr__(name)
 
-    def save(self, batch_size=100, skip_line=0, ignore_fields=[]):
+    def save(self, batch_size=100, skip_line=0, ignore_fields=None, context=None):
+        ignore_fields = ignore_fields or []
+
         values_list = [r.get_update_values() for r in self]
         res = self._model.load_batch(values_list, batch_size=batch_size,skip_line=skip_line,
-                                     ignore_fields=ignore_fields)
+                                     ignore_fields=ignore_fields, context=context)
         res_ids = res.get('ids', False)
         if not res_ids:
             return False
         for i, r in enumerate(self):
-            r._updated_values = {}
+            #remove from updated values the fields that have been updated
+            r._updated_values = {k:v for k,v in r._updated_values.items() if k in ignore_fields}
+
+            #ideally, '/id' should never end up in _values, WIP
+            if '/id' in r._values:
+                r._values.pop('/id')
+            # initialized_fields should only contain existing field names (e.g. no field names like 'user_id/id')
+            r._initialized_fields.extend([k.replace('/id','') for k in r._values.keys() if k not in ignore_fields])
+            #remove duplicates
+            r._initialized_fields = list(set(r._initialized_fields))
+
             if not r.id:
                 r.id = res_ids[i]
         return True

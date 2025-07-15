@@ -29,7 +29,8 @@ class OdooModel(object):
         return self.model_name == other.model_name
 
     def _update_cache(self,record_id, values):
-        self._cache[record_id] = values
+        if record_id:
+            self._cache[record_id] = values
 
     def values_to_record(self, values, update_cache=True):
         if update_cache and 'id' in values and isinstance(values['id'], int):

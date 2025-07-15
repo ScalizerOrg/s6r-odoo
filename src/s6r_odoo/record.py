@@ -120,6 +120,10 @@ class OdooRecord(object):
                     continue
                 model = OdooModel(self._odoo, field.get('relation'))
                 record = OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model)
+                if field.get('type') == 'many2one':
+                    record = OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, key, self._model)
+                else: #one2many or many2many
+                    record = self._odoo.values_list_to_records(field.get('relation'), [{'id':val} for val in value])
                 super().__setattr__(key, record)
             elif key.endswith('/id') and isinstance(value, str):
                 field_name = key[:-3]
