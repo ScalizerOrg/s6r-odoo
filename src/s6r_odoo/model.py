@@ -144,7 +144,8 @@ class OdooModel(object):
         return field_desc[field]
 
     def get_fields_list(self):
-        self.load_fields_description()
+        if not self._fields_loaded:
+            self.load_fields_description()
         return list(self._fields.keys())
 
     def get_ir_model_data(self):
