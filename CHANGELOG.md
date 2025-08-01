@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Next Version
+## [2.1.8] - 2025-08-01
 
 ### Added
-
+   
+   - Better id and xmlid handling with values_list_to_records
    - values_list_to_records now always returns an OdooRecordSet, even if empty
    - support for One2many and Many2many fields in OdooRecord
 

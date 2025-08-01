@@ -33,7 +33,7 @@ class OdooModel(object):
             self._cache[record_id] = values
 
     def values_to_record(self, values, update_cache=True):
-        if update_cache:
+        if update_cache and 'id' in values and isinstance(values['id'], int):
             self._update_cache(values['id'], values)
         return self._odoo.values_to_record(self.model_name, values, update_cache=False)
 
@@ -58,6 +58,10 @@ class OdooModel(object):
             return []
         if not fields:
             fields = self.get_fields_list()
+            if len(fields) > 20:
+                self._odoo.logger.warning(
+                    f"You are trying to read {len(fields)} fields for model {self.model_name} id: {str(ids)}"
+                    "\nThis might slow down your script, consider using fields parameter.")
         if isinstance(ids, int):
             if not no_cache:
                 cache_record = self._get_cache(ids)
@@ -140,7 +144,8 @@ class OdooModel(object):
         return field_desc[field]
 
     def get_fields_list(self):
-        self.load_fields_description()
+        if not self._fields_loaded:
+            self.load_fields_description()
         return list(self._fields.keys())
 
     def get_ir_model_data(self):
@@ -160,4 +165,8 @@ class OdooModel(object):
             return '{0}.{1}'.format(ir_model_datas[0].module, ir_model_datas[0].name)
 
     def get_field(self, field):
-        return self.load_field_description(field)
+        if not self._fields_loaded:
+            self.load_fields_description()
+        if field in self._fields:
+            return self._fields[field]
+
