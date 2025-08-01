@@ -24,12 +24,11 @@ METHODE_MAPPING = {
 
 
 class OdooConnection:
-    _context = {'lang': 'fr_FR', 'noupdate': True}
     query_count = 0
     method_count = {}
 
     def __init__(self, url, dbname, user, password, version=15.0, http_user=None, http_password=None, createdb=False,
-                 debug_xmlrpc=False, legacy=False, logger=None):
+                 debug_xmlrpc=False, legacy=False, logger=None, **kwargs):
         self.logger = logger or logging.getLogger("Odoo Connection".ljust(15))
         if debug_xmlrpc:
             self.logger.setLevel(logging.DEBUG)
@@ -44,6 +43,7 @@ class OdooConnection:
         self._version = version
         self._legacy = legacy
         self._debug_xmlrpc = debug_xmlrpc
+        self._context = {'lang': kwargs.get('lang') or 'fr_FR', 'noupdate': True}
         # noinspection PyProtectedMember,PyUnresolvedReferences
         self._insecure_context = ssl._create_unverified_context()
         self._compute_url()
