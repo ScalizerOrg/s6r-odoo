@@ -1,7 +1,5 @@
-"""
-- Official doc about fixtures: https://docs.pytest.org/en/stable/how-to/fixtures.html#fixtures-can-introspect-the-requesting-test-context
-- Good article about using fixtures with arguments: https://pytest-with-eric.com/fixtures/pytest-fixture-with-arguments/
-"""
+# - Official doc about fixtures: https://docs.pytest.org/en/stable/how-to/fixtures.html#fixtures-can-introspect-the-requesting-test-context
+# - Good article about using fixtures with arguments: https://pytest-with-eric.com/fixtures/pytest-fixture-with-arguments/
 
 import pytest
 import os

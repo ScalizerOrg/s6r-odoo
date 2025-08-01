@@ -18,6 +18,12 @@ class OdooRecordSet(list):
             return self.get_ids()
         else:
             return self.super().__getattr__(name)
+    @property
+    def _read_fields(self):
+        read_fields = set()
+        for r in self:
+            read_fields.update(r._read_fields)
+        return list(read_fields)
 
     def save(self, batch_size=100, skip_line=0, ignore_fields=None, context=None):
         ignore_fields = ignore_fields or []
