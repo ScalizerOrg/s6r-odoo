@@ -497,25 +497,26 @@ class OdooConnection:
         model_datas = self.get_ir_model_data(model)
         return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
 
-    def get_fields(self, model, fields=None, attributes=None):
-        if model in self._models and self._models[model]._fields and not fields and not attributes:
-            return self._models[model]._fields
-        if model in self._models and self._models[model]._fields and fields:
-            return {f:self._models[model]._fields[f] for f in fields if f in self._models[model]._fields}
+    def get_fields(self, model_name, fields=None, attributes=None):
+        model = self.model(model_name)
+        if model._fields and not fields and not attributes:
+            return model._fields
+        if model._fields and fields:
+            return {f:model._fields[f] for f in fields if f in model._fields}
         params = [fields or []]
         if attributes:
             params.append(attributes)
 
-        res_fields = self.execute_odoo(model, 'fields_get', params)
-        if not fields and model in self._models and not self._models[model]._fields_loaded:
-            self._models[model]._fields = res_fields
+        res_fields = self.execute_odoo(model_name, 'fields_get', params)
+        if not fields and model and not model._fields_loaded:
+            model._fields = res_fields
         return res_fields
 
-    def _get_xmlid_cache(self, model, res_id):
+    def _get_xmlid_cache(self, model_name, res_id):
         if not 'ir.model.data' in self._models:
             return
         cache = self._get_model_cache('ir.model.data')
-        ir_model_datas = list(filter(lambda x: x['model'] == model and x['res_id'] == res_id, cache))
+        ir_model_datas = list(filter(lambda x: x['model'] == model_name and x['res_id'] == res_id, cache))
         if ir_model_datas:
             return '{0}.{1}'.format(ir_model_datas[0]['module'], ir_model_datas[0]['name'])
 
@@ -528,8 +529,8 @@ class OdooConnection:
         if ir_model_datas:
             return [ir_model_datas[0]['model'], ir_model_datas[0]['res_id']]
 
-    def _get_model_cache(self, model):
-        cache = self._models[model]._cache
+    def _get_model_cache(self, model_name):
+        cache = self.model(model_name)._cache
         return [cache[res_id] for res_id in cache.keys()]
 
     def print_query_count(self):
