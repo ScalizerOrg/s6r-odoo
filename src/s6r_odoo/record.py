@@ -56,11 +56,11 @@ class OdooRecord(object):
     def __getattr__(self, name):
         if name.startswith('_'):
             return self.super().__getattr__(name)
-        if not self._model:
+        if not self._model and name in self._values:
             return self.super().__getattr__(name)
         if name == 'get':
             return self._values.get
-        if name not in self._values:
+        if name not in self._values and self._model:
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
             if  name in self._model._fields:
@@ -71,7 +71,7 @@ class OdooRecord(object):
     def __setattr__(self, name, value):
         if name.startswith('_') or name == 'id':
             return super().__setattr__(name, value)
-        if name not in self._values:
+        if name not in self._values and self._model:
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
         if name in self._values and name in self._initialized_fields and value != self._values[name]:
