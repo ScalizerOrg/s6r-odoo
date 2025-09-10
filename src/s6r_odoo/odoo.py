@@ -14,6 +14,7 @@ from pprint import pformat
 import requests
 from bs4 import BeautifulSoup
 
+from .file_import import FileImport
 from .model import OdooModel
 from .record import OdooRecord
 from .record_set import OdooRecordSet
@@ -51,6 +52,7 @@ class OdooConnection:
             self._create_db()
         self._prepare_connection()
         self._models = {}
+        self._file_import = FileImport(self)
 
     def __str__(self):
         return 'OdooConnection(%s)' % self._dbname
@@ -400,6 +402,7 @@ class OdooConnection:
 
     def load_batch(self, model, datas, batch_size=100, skip_line=0, context=None, **kwargs):
         ignore_fields = kwargs.get('ignore_fields', [])
+        datas = datas[skip_line:]
         context = self.context | context if context else self.context
         if not datas:
             return
@@ -546,3 +549,6 @@ class OdooConnection:
         self.logger.info('Query count : %s', self.query_count)
         for method in self.method_count:
             self.logger.info('Method Count %s : %s', method, self.method_count[method])
+
+    def import_csv(self, file_path, model, **kwargs):
+        return self._file_import.import_csv(file_path, model, **kwargs)
