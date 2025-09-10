@@ -497,6 +497,15 @@ class OdooConnection:
         model_datas = self.get_ir_model_data(model)
         return dict([('%s.%s' % (data.module, data.name), data.res_id) for data in model_datas])
 
+    def get_id_ref_list(self, model):
+        """
+        Returns a dict with record id as key and a xmlid list as value
+        :param model: Model name
+        :return: {'894': ['base.module_account', ...], ...}
+        """
+        xmlid_dict = self.get_xmlid_dict(model)
+        return dict([(id, [xmlid for xmlid, res_id in xmlid_dict.items() if res_id == id]) for id in xmlid_dict.values()])
+
     def get_fields(self, model_name, fields=None, attributes=None):
         model = self.model(model_name)
         if model._fields and not fields and not attributes:

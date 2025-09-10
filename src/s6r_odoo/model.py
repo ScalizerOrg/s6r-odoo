@@ -128,6 +128,9 @@ class OdooModel(object):
     def get_xmlid_dict(self):
         return self._odoo.get_xmlid_dict(self.model_name)
 
+    def get_id_ref_list(self):
+        return self._odoo.get_id_ref_list(self.model_name)
+
     def get_fields(self, fields=None, attributes=None):
         return self._odoo.get_fields(self.model_name, fields, attributes)
 
