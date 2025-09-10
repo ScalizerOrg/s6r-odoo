@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-09-11
+
+### Added
+
+ - Add import_csv, import_xls and import_xlsx methods
+     ```python
+    odoo.import_xlsx('res.partner.xlsx', 'res.partner', limit=100, skip_line=500, batch_size=50)
+    odoo.import_xls('res.partner.xls', 'res.partner', limit=100, skip_line=500, batch_size=50)
+    odoo.import_csv('res.partner.csv', 'res.partner', limit=100, skip_line=500, batch_size=50)
+    ```
+ - Add tests to ensure read, search and create returns a RecordSet
+ - Add get_id_ref_list method to get a dict with record id as key and a xmlid list as value
+        e.g. {'894': ['base.module_account', ...], ...}
+
 ## [2.1.9] - 2025-08-01
 
 ### Added
