@@ -552,3 +552,9 @@ class OdooConnection:
 
     def import_csv(self, file_path, model, **kwargs):
         return self._file_import.import_csv(file_path, model, **kwargs)
+
+    def import_xls(self, file_path, model, **kwargs):
+        return self._file_import.import_xls(file_path, model, **kwargs)
+
+    def import_xlsx(self, file_path, model, **kwargs):
+        return self._file_import.import_xlsx(file_path, model, **kwargs)

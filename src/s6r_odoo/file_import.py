@@ -5,7 +5,8 @@ import csv
 import os
 from datetime import datetime
 import sys
-
+import xlrd
+import openpyxl
 
 def get_file_full_path(path):
     if not path:
@@ -22,7 +23,7 @@ class FileImport:
     context = False
     limit = 0
     skip_line = 0
-    batch_size = 1000
+    batch_size = 100
     thread = 0
     ignore_errors = []
 
@@ -146,7 +147,7 @@ class FileImport:
         self.context = params.get('context', False)
         self.limit = params.get('limit', 0)
         self.skip_line = params.get('skip_line', 0)
-        self.batch_size = params.get('batch_size', 1000)
+        self.batch_size = params.get('batch_size', 100)
         self.thread = params.get('thread', 0)
         self.ignore_errors = params.get('ignore_errors', [])
 
@@ -160,5 +161,103 @@ class FileImport:
         self.set_params(kwargs)
         fields = self.odoo.get_fields(model)
         raw_datas = self.parse_csv_file_dictreader(file_path, fields)
+        if raw_datas:
+            return self.odoo.load_batch(model, raw_datas, batch_size=self.batch_size)
+
+    def _xls_rows_to_values(self, rows, fields):
+        values = []
+        headers = rows.pop(0)
+        for row in rows:
+            value = {}
+            for header in [h for h in headers if h]:
+                value[header] = row[headers.index(header)]
+            values.append(self.check_values(value, fields))
+        if self.skip_line:
+            values = values[self.skip_line:]
+        if self.limit:
+            values = values[:self.limit]
+        return values
+
+    def check_values(self, values, fields):
+        for field in values:
+            clean_field = FileImport.clean_field(field)
+            method = "field_check_%s" % (fields.get(clean_field, {}).get('type'))
+            if hasattr(FileImport, method):
+                method_to_call = getattr(FileImport, method)
+                values[field] = method_to_call(fields[clean_field], values[field])
+        return values
+
+    def read_xls(self, file_path):
+        file_path = get_file_full_path(file_path)
+        book = xlrd.open_workbook(file_path)
+        sheets = book.sheet_names()
+        sheet = sheets[0]
+        return self._read_xls_book(book, sheet)
+
+    def read_xlsx(self, file_path):
+        file_path = get_file_full_path(file_path)
+        book = openpyxl.load_workbook(file_path)
+        sheets = book.sheetnames
+        sheet = sheets[0]
+        return self._read_xlsx_book(book, sheet)
+
+    def _read_xlsx_book(self, book, sheet_name):
+        sheet = book.get_sheet_by_name(sheet_name)
+        rows = []
+        for row in sheet.rows:
+            values = []
+            for colx, cell in enumerate(row, 1):
+                if cell.data_type == 'n' and cell.value is not None:
+                    is_float = cell.value % 1 != 0.0
+                    values.append(str(cell.value) if is_float else str(int(cell.value)))
+                elif cell.data_type == 'd':
+                    dt = cell.value
+                    value = dt.strftime("%Y-%m-%d %H:%M:%S") if isinstance(dt, datetime) else dt.strftime("%Y-%m-%d")
+                    values.append(value)
+                elif cell.data_type == 'b':
+                    values.append(u'True' if cell.value else u'False')
+                elif cell.value is not None:
+                    values.append(cell.value)
+            if any(x for x in values if x.strip()):
+                rows.append(values)
+        return rows
+
+    def _read_xls_book(self, book, sheet_name):
+        sheet = book.sheet_by_name(sheet_name)
+        rows = []
+        for row in map(sheet.row, range(sheet.nrows)):
+            values = []
+            for cell in row:
+                if cell.ctype is xlrd.XL_CELL_NUMBER:
+                    is_float = cell.value % 1 != 0.0
+                    value = str(cell.value) if is_float else str(int(cell.value))
+                    values.append(value)
+                elif cell.ctype is xlrd.XL_CELL_DATE:
+                    is_datetime = cell.value % 1 != 0.0
+                    dt = datetime(*xlrd.xldate.xldate_as_tuple(cell.value, book.datemode))
+                    value = dt.strftime("%Y-%m-%d %H:%M:%S") if is_datetime else dt.strftime("%Y-%m-%d")
+                    values.append(value)
+                elif cell.ctype is xlrd.XL_CELL_BOOLEAN:
+                    values.append(u'True' if cell.value else u'False')
+                else:
+                    values.append(cell.value)
+            if any(x for x in values if x.strip()):
+                rows.append(values)
+
+        return rows
+
+    def import_xls(self, file_path, model, **kwargs):
+        self.set_params(kwargs)
+        fields = self.odoo.get_fields(model)
+        rows = self.read_xls(file_path)
+        raw_datas = self._xls_rows_to_values(rows, fields)
+        if raw_datas:
+            return self.odoo.load_batch(model, raw_datas, batch_size=self.batch_size)
+
+    def import_xlsx(self, file_path, model, **kwargs):
+        self.set_params(kwargs)
+        fields = self.odoo.get_fields(model)
+        rows = self.read_xlsx(file_path)
+        raw_datas = self._xls_rows_to_values(rows, fields)
         if raw_datas:
             return self.odoo.load_batch(model, raw_datas, batch_size=self.batch_size)
