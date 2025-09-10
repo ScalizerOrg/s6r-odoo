@@ -50,3 +50,23 @@ def test_ref(odoo_multi_versions):
     #TODO
     #assert country_fr._xmlid = 'base.fr'
 
+def test_results_instance(odoo_multi_versions):
+    odoo = odoo_multi_versions
+    model_id = odoo.model('ir.model').read([1], fields=['name'])
+    assert isinstance(model_id, OdooRecordSet)
+    model_ids = odoo.model('ir.model').read([1, 2, 3], fields=['name'])
+    assert isinstance(model_ids, OdooRecordSet)
+    model_ids = odoo.model('ir.model').search([('name', '=', 'test')], fields=['name'])
+    assert isinstance(model_ids, OdooRecordSet)
+    model_ids = odoo.model('ir.model').search([('name', '=', 'Base')], fields=['name'])
+    assert isinstance(model_ids, OdooRecordSet)
+    partner_id = odoo.model('res.partner').create([{'name': 'Test', 'email': 'test@test.fr'}])
+    assert isinstance(partner_id, OdooRecordSet)
+    partner_id = odoo.model('res.partner').create({'name': 'Test', 'email': 'test@test.fr'})
+    assert isinstance(partner_id, OdooRecordSet)
+
+    # Search with limit=1 returns a record
+    model_id = odoo.model('ir.model').search([], fields=['name'], limit=1)
+    assert isinstance(model_id, OdooRecord)
+    model_id = odoo.model('ir.model').search([('name', '=', 'test')], fields=['name'], limit=1)
+    assert isinstance(model_id, OdooRecordSet) and len(model_id) == 0
