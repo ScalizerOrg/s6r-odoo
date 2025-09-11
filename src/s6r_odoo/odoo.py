@@ -145,6 +145,10 @@ class OdooConnection:
             self.logger.error(msg)
             raise ConnectionError(msg)
 
+    def reset_count(self):
+        self.query_count = 0
+        self.method_count = {}
+
     def query_counter_update(self, model, method):
         self.query_count += 1
         if method not in self.method_count:
@@ -204,20 +208,20 @@ class OdooConnection:
             if not no_raise:
                 raise e
 
-    def values_to_record(self, model_name, values, update_cache=True):
+    def values_to_record(self, model_name, values, update_cache=True, resolve_xmlids=True):
         if isinstance(values, int):
             values = {'id': values}
-        record = OdooRecord(self, self.model(model_name), values)
+        record = OdooRecord(self, self.model(model_name), values, resolve_xmlids=resolve_xmlids)
         if update_cache:
             self._models[model_name]._update_cache(record.id, values)
         return record
 
-    def values_list_to_records(self, model_name, val_list, update_cache=True):
+    def values_list_to_records(self, model_name, val_list, update_cache=True, resolve_xmlids=True):
         if val_list is None:
             val_list = []
         if self._legacy:
             return val_list
-        records = [self.values_to_record(model_name, values, update_cache) for values in val_list]
+        records = [self.values_to_record(model_name, values, update_cache, resolve_xmlids) for values in val_list]
         return OdooRecordSet(records, model=self.model(model_name))
 
     def get_ref(self, external_id):
@@ -230,7 +234,7 @@ class OdooConnection:
         if encode:
             with open(path, "rb") as f:
                 res = f.read()
-            res = base64.b64encode(res).decode("utf-8", "ignore")
+                res = base64.b64encode(res).decode("utf-8", "ignore")
         else:
             with open(path, "r") as f:
                 res = f.read()
@@ -342,6 +346,8 @@ class OdooConnection:
                                  {'context': context or self._context})
 
     def read(self, model, ids, fields, context=None):
+        if ids and isinstance(ids, list) and isinstance(ids[0], str):
+            ids = [self.get_ref(i) for i in ids]
         res =  self._read(model, ids, fields, context)
         return self.values_list_to_records(model, res)
 
@@ -390,8 +396,11 @@ class OdooConnection:
 
     def prepare_load_batch_datas(self, datas):
         batch_keys = list(datas[0].keys())
-        for values in datas:
+        for i, values in enumerate(datas):
             for key in batch_keys:
+                if key not in values:
+                    self.logger.warning(f"Value for key {key} not found in line {i}")
+                    values[key] = ''
                 if key.endswith('.id') and isinstance(values.get(key), list):
                     values[key] = ','.join([str(v) for v in values.get(key)]) if values.get(key) else ''
                 if key.endswith('.id') and isinstance(values.get(key), int):
@@ -545,10 +554,23 @@ class OdooConnection:
         cache = self.model(model_name)._cache
         return [cache[res_id] for res_id in cache.keys()]
 
+    def clear_cache(self):
+        for model in self._models:
+            self.model(model)._cache = {}
+
     def print_query_count(self):
         self.logger.info('Query count : %s', self.query_count)
         for method in self.method_count:
             self.logger.info('Method Count %s : %s', method, self.method_count[method])
+
+    def get_method_count(self, method, model=None):
+        if model:
+            method_values = self.method_count.get(method, {})
+            if method_values:
+                return method_values.get(model, 0)
+            else:
+                return sum(method_values.values())
+        return 0
 
     def import_csv(self, file_path, model, **kwargs):
         return self._file_import.import_csv(file_path, model, **kwargs)

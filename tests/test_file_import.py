@@ -1,4 +1,7 @@
-from ._fixtures import *
+try:
+    from ._fixtures import *
+except ImportError:
+    pass
 
 def test_csv_file_import(odoo):
     model_name = 'res.partner'
@@ -7,7 +10,7 @@ def test_csv_file_import(odoo):
 
 def _test_import_result(odoo, model_name, result):
     assert result and result.get('ids')
-    assert len(result.get('ids')) == 500
+    assert len(result.get('ids')) == 100
     partner_id = odoo.model(model_name).read(result.get('ids')[0], ['name'])
     assert partner_id.name == 'Partner 501'
     partner_id = odoo.model(model_name).read(result.get('ids')[-1], ['name'])

@@ -13,7 +13,7 @@ class OdooRecord(object):
     _updated_values = {}
     _initialized_fields = []
 
-    def __init__(self, odoo, model, values: dict, field='', parent_model=None):
+    def __init__(self, odoo, model, values: dict, field='', parent_model=None, **kwargs):
         self._values = {}
         self._updated_values = {}
         self._initialized_fields = []
@@ -27,14 +27,16 @@ class OdooRecord(object):
         if parent_model:
             self._parent_model = parent_model
 
-        self.set_values(values, update_cache=False)
+        self.set_values(values, update_cache=False, resolve_xmlids=kwargs.get('resolve_xmlids', True))
 
     def __str__(self):
         if self._model:
-            if hasattr(self, 'id'):
+            if hasattr(self, 'id') and self.id:
                 return "%s(%s)" % (self._model, self.id)
-            if hasattr(self, 'name'):
+            if 'name' in self._values:
                 return "%s(%s)" % (self._model, self.name)
+            elif self._xmlid:
+                return "%s(%s)" % (self._model, self._xmlid)
         elif self._field:
             if hasattr(self, 'id'):
                 return "%s(%s)" % (self._field, self.id)
@@ -105,12 +107,13 @@ class OdooRecord(object):
         if self._model:
             self._model._update_cache(self._values['id'], self._values)
 
-    def set_values(self, values, update_cache=True):
+    def set_values(self, values, update_cache=True, resolve_xmlids=True):
+        values = values.copy()
         self._values.update(values)
         self._handle_id_and_xmlid(values)
         if self._model and update_cache:
             self._update_cache()
-        self._process_related_values(values)
+        self._process_related_values(values, resolve_xmlids)
 
     def _handle_id_and_xmlid(self, values):
         if not values.get('id', False):
@@ -120,54 +123,93 @@ class OdooRecord(object):
         if 'id' in values and isinstance(values['id'], str):
             self._xmlid = values.pop('id', None)
 
-    def _process_related_values(self, values):
-        related_values = {}
+    def _process_related_values(self, values, resolve_xmlids=True):
+        value_type = 'id'
         for key, value in values.items():
-            if isinstance(value, list) and len(value) == 2:
-                self._handle_relation_list(key, value)
-            elif key.endswith('/id') and isinstance(value, str):
-                self._handle_relation_xmlid(key, value, related_values)
-            elif key.endswith('.id') and isinstance(value, int):
-                self._handle_relation_id(key, value, related_values)
+            if '.' in key:
+                field_name = key.split('.')[0]
+            elif '/' in key:
+                value_type = 'xmlid'
+                field_name = key.split('/')[0]
+            else:
+                field_name = key
+
+            if self._model:
+                field = self._model.get_field(field_name)
             else:
                 super().__setattr__(key, value)
-        self._values.update(related_values)
+                continue
 
-    def _handle_relation_list(self, key, value):
+            if isinstance(value, list) and len(value) == 2 and isinstance(value[0], int) and isinstance(value[1], str):
+                self._handle_relation_list(field_name, value, field)
+            elif field.get('type') == 'many2many' and key.endswith('id') or key.endswith('ids'):
+                self._values.pop(key, None)
+                self._handle_relation_many2many_ids(field_name, value, value_type, resolve_xmlids)
+            elif key.endswith('/id') and isinstance(value, str):
+                if resolve_xmlids:
+                    self._values.pop(key, None)
+                    self._handle_relation_xmlid(field_name, value, resolve_xmlids)
+            elif key.endswith('.id') and isinstance(value, int):
+                self._handle_relation_id(field_name, value)
+            else:
+                try:
+                    super().__setattr__(key, value)
+                except Exception as e:
+                    self.logger.error(e)
+
+    def _handle_relation_list(self, key, value, field=False):
         field_name = key
-        field = self._model.get_field(field_name)
-        if not field.get('relation'):
+        if not field or not field.get('relation'):
             return
         relation = field.get('relation')
         model = OdooModel(self._odoo, relation)
         if field.get('type') == 'many2one':
             record = OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, field_name, self._model)
-        else:  # one2many or many2many
+        else:
             record = self._odoo.values_list_to_records(relation, [{'id': val} for val in value])
         super().__setattr__(key, record)
 
-    def _handle_relation_xmlid(self, key, value, related_values):
-        field_name = key[:-3]
+    def _handle_relation_many2many_ids(self, field_name, value, value_type, resolve_xmlids=True):
+        if isinstance(value, str):
+            value = value.split(',')
+        if value_type == 'id':
+            value = [int(val) for val in value]
+        if value_type == 'xmlid' and resolve_xmlids:
+            value = [self._odoo.get_ref(val) for val in value]
+        field = self._model.get_field(field_name)
+        if not field or not field.get('relation'):
+            return
+        relation = field.get('relation')
+        record = self._odoo.values_list_to_records(relation, [{'id': val} for val in value])
+        super().__setattr__(field_name, record)
+
+    def _handle_relation_xmlid(self, field_name, value, resolve_xmlids):
         field = self._model.get_field(field_name)
         if not field.get('relation'):
             return
-        res_id = self._odoo.get_ref(value)
+        if resolve_xmlids:
+            res_id = self._odoo.get_ref(value)
+        else:
+            res_id = value
+
         model = OdooModel(self._odoo, field.get('relation'))
         record = OdooRecord(self._odoo, model, {'id': res_id}, field_name, self._model)
         record._xmlid = value
         super().__setattr__(field_name, record)
-        related_values[f'{field_name}.id'] = record.id
-        self._values.pop(key, None)
+        # self._values.pop(field_name, None)
+        if resolve_xmlids:
+            self._values[f'{field_name}.id'] = record.id
+        else:
+            self._values[f'{field_name}/id'] = record._xmlid
 
-    def _handle_relation_id(self, key, value, related_values):
-        field_name = key[:-3]
+    def _handle_relation_id(self, field_name, value):
         field = self._model.get_field(field_name)
         if not field.get('relation'):
             return
         model = OdooModel(self._odoo, field.get('relation'))
         record = OdooRecord(self._odoo, model, {'id': value}, field_name, self._model)
         super().__setattr__(field_name, record)
-        related_values[f'{field_name}.id'] = record.id
+        self._values[f'{field_name}.id'] = record.id
 
     def read(self, fields=None, no_cache=False):
         if not self._model._fields_loaded:
