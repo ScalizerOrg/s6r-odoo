@@ -17,6 +17,10 @@ class OdooRecordSet(list):
     def ids(self):
         return self.get_ids()
 
+    def to_dict(self):
+        """Convert the recordset to a list of dictionaries for JSON serialization"""
+        return [record.to_dict() if hasattr(record, 'to_dict') else dict(record) for record in self]
+        
     @property
     def _read_fields(self):
         read_fields = set()

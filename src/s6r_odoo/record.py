@@ -1,7 +1,33 @@
 # Copyright (C) 2024 - Scalizer (<https://www.scalizer.fr>).
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl.html).
 
+import json
 from .model import OdooModel
+
+
+class OdooJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for OdooRecord and OdooRecordSet"""
+
+    def default(self, obj):
+        if hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        if isinstance(obj, (list, tuple)) and hasattr(obj, 'ids'):  # Handle OdooRecordSet
+            return [record.to_dict() if hasattr(record, 'to_dict') else dict(record) for record in obj]
+        return super().default(obj)
+
+
+# Monkey patch json.dumps to use our custom encoder by default
+_original_dumps = json.dumps
+
+
+def dumps(*args, **kwargs):
+    if 'cls' not in kwargs:
+        kwargs['cls'] = OdooJSONEncoder
+    return _original_dumps(*args, **kwargs)
+
+
+json.dumps = dumps
+
 
 class OdooRecord(object):
     _odoo = None
@@ -47,28 +73,79 @@ class OdooRecord(object):
     def __repr__(self):
         return str(self)
 
-    def __bool__(self):
-        if hasattr(self, 'id'):
-            return bool(self.id)
+    def __iter__(self):
+        """Support for dict() conversion by yielding key-value pairs"""
+        # for key, value in self._values.items():
+        #     yield (key, value)
+        for key in self.get_attributes():
+            yield (key, self.__dict__[key])
+
+    def get_attributes(self):
+        for key in list(self.__dict__.keys()):
+            if key.startswith('_'):
+                continue
+            yield key
+
+    # def __getitem__(self, key):
+    #     """Support for both dictionary-style and attribute access"""
+    #     if isinstance(key, str):
+    #         if key in self._values:
+    #             return getattr(self, key)
+    #         return getattr(self, key)
+    #     raise KeyError(key)
 
     def __getitem__(self, key):
         if isinstance(key, str):
             return getattr(self, key)
 
-    def __getattr__(self, name):
+    def get(self, key, default=None):
+        if key in list(self.__dict__.keys()):
+            return getattr(self, key)
+        return default
+
+    # def __getattr__(self, name):
+    #     if name in self._values:
+    #         return self._values[name]
+    #     raise AttributeError("Attribute '%s' not found in model '%s'" % (name, self._model))
+
+    def to_dict(self):
+        """Convert the record to a dictionary with JSON-serializable values"""
+        result = {}
+        for key in self.get_attributes():
+            value = getattr(self, key)
+            if isinstance(value, OdooRecord):
+                result[key] = value.to_dict()
+            elif hasattr(value, 'to_dict'):
+                result[key] = value.to_dict()
+            elif isinstance(value, dict):
+                result[key] = {k: v.to_dict() if hasattr(v, 'to_dict') else v for k, v in value.items()}
+            elif isinstance(value, (list, tuple)):
+                result[key] = [
+                    item.to_dict() if isinstance(item, OdooRecord) else item
+                    for item in value
+                ]
+            else:
+                result[key] = value
+        return result
+
+    def __bool__(self):
+        if hasattr(self, 'id') and self._model:
+            return bool(self.id)
+        else:
+            return any([bool(getattr(self, k)) for k in list(self.__dict__.keys())])
+
+    def __getattribute__(self, name):
         if name.startswith('_'):
-            return self.super().__getattr__(name)
+            return super().__getattribute__(name)
         if not self._model and name in self._values:
-            return self.super().__getattr__(name)
-        if name == 'get':
-            return self._values.get
+            return super().__getattribute__(name)
         if name not in self._values and self._model:
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
-            if  name in self._model._fields:
+            if name in self._model._fields:
                 self.read([name])
                 return getattr(self, name)
-            raise AttributeError("Attribute '%s' not found in model '%s'" % (name, self._model))
+        return super().__getattribute__(name)
 
     def __setattr__(self, name, value):
         if name.startswith('_') or name == 'id':
@@ -137,11 +214,18 @@ class OdooRecord(object):
             if self._model:
                 field = self._model.get_field(field_name)
             else:
-                super().__setattr__(key, value)
-                continue
+                field = None
 
-            if isinstance(value, list) and len(value) == 2 and isinstance(value[0], int) and isinstance(value[1], str):
+            if field and isinstance(value, list) and len(value) == 2 and isinstance(value[0], int) and isinstance(
+                    value[1], str):
                 self._handle_relation_list(field_name, value, field)
+            elif not field:
+                if isinstance(value, list):
+                    if len(value) == 2 and isinstance(value[0], int) and isinstance(value[1], str):
+                        value = OdooRecord(self._odoo, None, {'id': value[0], 'name': value[1]})
+                elif isinstance(value, dict):
+                    value = OdooRecord(self._odoo, None, value)
+                super().__setattr__(key, value)
             elif field.get('type') == 'many2many' and key.endswith('id') or key.endswith('ids'):
                 self._values.pop(key, None)
                 self._handle_relation_many2many_ids(field_name, value, value_type, resolve_xmlids)
@@ -151,6 +235,9 @@ class OdooRecord(object):
                     self._handle_relation_xmlid(field_name, value, resolve_xmlids)
             elif key.endswith('.id') and isinstance(value, int):
                 self._handle_relation_id(field_name, value)
+            elif isinstance(value, dict):
+                value = OdooRecord(self._odoo, None, value)
+                super().__setattr__(key, value)
             else:
                 try:
                     super().__setattr__(key, value)
