@@ -13,11 +13,14 @@ class OdooRecordSet(list):
             self._model = model
             self._odoo = self._model._odoo
 
-    def __getattr__(self, name):
-        if name == 'ids':
-            return self.get_ids()
-        else:
-            return self.super().__getattr__(name)
+    @property
+    def ids(self):
+        return self.get_ids()
+
+    def to_dict(self):
+        """Convert the recordset to a list of dictionaries for JSON serialization"""
+        return [record.to_dict() if hasattr(record, 'to_dict') else dict(record) for record in self]
+        
     @property
     def _read_fields(self):
         read_fields = set()
