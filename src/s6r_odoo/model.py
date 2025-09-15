@@ -149,7 +149,7 @@ class OdooModel(object):
         return self._odoo.get_fields(self.model_name, fields, attributes)
 
     def load_fields_description(self):
-        if not self._fields_loaded:
+        if not self._fields_loaded and self.model_name:
             self._fields = self.get_fields()
             self._fields_loaded = True
 
@@ -182,7 +182,7 @@ class OdooModel(object):
             return '{0}.{1}'.format(ir_model_datas[0].module, ir_model_datas[0].name)
 
     def get_field(self, field):
-        if not self._fields_loaded:
+        if not self._fields_loaded and self.model_name:
             self.load_fields_description()
         if field in self._fields:
             return self._fields[field]

@@ -75,24 +75,14 @@ class OdooRecord(object):
 
     def __iter__(self):
         """Support for dict() conversion by yielding key-value pairs"""
-        # for key, value in self._values.items():
-        #     yield (key, value)
         for key in self.get_attributes():
-            yield (key, self.__dict__[key])
+            yield key, self.__dict__[key]
 
     def get_attributes(self):
         for key in list(self.__dict__.keys()):
             if key.startswith('_'):
                 continue
             yield key
-
-    # def __getitem__(self, key):
-    #     """Support for both dictionary-style and attribute access"""
-    #     if isinstance(key, str):
-    #         if key in self._values:
-    #             return getattr(self, key)
-    #         return getattr(self, key)
-    #     raise KeyError(key)
 
     def __getitem__(self, key):
         if isinstance(key, str):
@@ -102,11 +92,6 @@ class OdooRecord(object):
         if key in list(self.__dict__.keys()):
             return getattr(self, key)
         return default
-
-    # def __getattr__(self, name):
-    #     if name in self._values:
-    #         return self._values[name]
-    #     raise AttributeError("Attribute '%s' not found in model '%s'" % (name, self._model))
 
     def to_dict(self):
         """Convert the record to a dictionary with JSON-serializable values"""
@@ -145,7 +130,12 @@ class OdooRecord(object):
             if name in self._model._fields:
                 self.read([name])
                 return getattr(self, name)
-        return super().__getattribute__(name)
+        res = super().__getattribute__(name)
+        if isinstance(res, dict):
+            return OdooRecord(self._odoo, None, res)
+        if res and isinstance(res, list) and not isinstance(res[0], OdooRecord):
+            return self._odoo.values_list_to_records(None, res)
+        return res
 
     def __setattr__(self, name, value):
         if name.startswith('_') or name == 'id':
@@ -283,7 +273,6 @@ class OdooRecord(object):
         record = OdooRecord(self._odoo, model, {'id': res_id}, field_name, self._model)
         record._xmlid = value
         super().__setattr__(field_name, record)
-        # self._values.pop(field_name, None)
         if resolve_xmlids:
             self._values[f'{field_name}.id'] = record.id
         else:

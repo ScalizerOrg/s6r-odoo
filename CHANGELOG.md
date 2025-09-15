@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+ - Add to_dict method on OdooRecord and OdooRecordSet and allows to convert OdooRecord to json
  - Add import_csv, import_xls and import_xlsx methods
      ```python
     odoo.import_xlsx('res.partner.xlsx', 'res.partner', limit=100, skip_line=500, batch_size=50)
