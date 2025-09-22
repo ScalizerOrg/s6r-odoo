@@ -123,14 +123,16 @@ class OdooRecord(object):
         if name.startswith('_'):
             return super().__getattribute__(name)
         if not self._model and name in self._values:
-            return super().__getattribute__(name)
+            return getattr(self, name)
         if name not in self._values and self._model:
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
             if name in self._model._fields:
-                self.read([name])
-                return getattr(self, name)
-        res = super().__getattribute__(name)
+                res = self.read([name])
+            else:
+                res = super().__getattribute__(name)
+        else:
+            res = super().__getattribute__(name)
         if isinstance(res, dict):
             return OdooRecord(self._odoo, None, res)
         if res and isinstance(res, list) and not isinstance(res[0], OdooRecord):

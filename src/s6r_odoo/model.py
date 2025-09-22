@@ -17,7 +17,7 @@ class OdooModel(object):
         self._xmlid_cache = {}
 
     def __str__(self):
-        return self.model_name
+        return self.model_name or ''
 
     def __repr__(self):
         return str(self)
