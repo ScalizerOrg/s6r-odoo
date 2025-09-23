@@ -122,7 +122,7 @@ class OdooRecord(object):
     def __getattribute__(self, name):
         if name.startswith('_'):
             return super().__getattribute__(name)
-        if not self._model and name in self._values:
+        if not getattr(self, '_model') and name in getattr(self, '_values'):
             return getattr(self, name)
         if name not in self._values and self._model:
             if not self._model._fields_loaded:
