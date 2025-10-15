@@ -42,7 +42,7 @@ class OdooRecord(object):
     def __init__(self, odoo, model, values: dict, field='', parent_model=None, **kwargs):
         self._values = {}
         self._updated_values = {}
-        self._initialized_fields = []
+        self._initialized_fields = kwargs.get('initialized_fields', [])
         self._odoo = odoo
         self.id = False
         if model:
@@ -145,7 +145,7 @@ class OdooRecord(object):
         if name not in self._values and self._model:
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
-        if name in self._values and name in self._initialized_fields and value != self._values[name]:
+        if name in self._values and name in self._initialized_fields and self._values_diff(value, self._values[name]):
             self._updated_values[name] = value
             return super().__setattr__(name, value)
         if name in self._values and name not in self._initialized_fields:
@@ -154,6 +154,11 @@ class OdooRecord(object):
             self._initialized_fields.append(name)
             return res
         return super().__setattr__(name, value)
+
+    def _values_diff(self, val1, val2):
+        if type(val1).__name__ == 'OdooRecordSet' and isinstance(val2, list):
+            return set(val1.mapped('id')) != set(val2)
+        return val1 != val2
 
     def __setitem__(self, key, value):
         if isinstance(key, str):
@@ -218,8 +223,9 @@ class OdooRecord(object):
                 elif isinstance(value, dict):
                     value = OdooRecord(self._odoo, None, value)
                 super().__setattr__(key, value)
-            elif field.get('type') == 'many2many' and key.endswith('id') or key.endswith('ids'):
-                self._values.pop(key, None)
+            elif field.get('type') in ['many2many', 'one2many'] and key.endswith('id') or key.endswith('ids'):
+                if value_type == 'xmlid':
+                    self._values.pop(key, None)
                 self._handle_relation_many2many_ids(field_name, value, value_type, resolve_xmlids)
             elif key.endswith('/id') and isinstance(value, str):
                 if resolve_xmlids:
@@ -260,7 +266,7 @@ class OdooRecord(object):
             return
         relation = field.get('relation')
         record = self._odoo.values_list_to_records(relation, [{'id': val} for val in value])
-        super().__setattr__(field_name, record)
+        setattr(self, field_name, record)
 
     def _handle_relation_xmlid(self, field_name, value, resolve_xmlids):
         field = self._model.get_field(field_name)

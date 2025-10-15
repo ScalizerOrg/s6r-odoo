@@ -208,20 +208,28 @@ class OdooConnection:
             if not no_raise:
                 raise e
 
-    def values_to_record(self, model_name, values, update_cache=True, resolve_xmlids=True):
+    def values_to_record(self, model_name, values, update_cache=True, resolve_xmlids=True, initialized_fields=None):
+        if initialized_fields is None:
+            initialized_fields = []
         if isinstance(values, int):
             values = {'id': values}
-        record = OdooRecord(self, self.model(model_name), values, resolve_xmlids=resolve_xmlids)
+        record = OdooRecord(self, self.model(model_name), values,
+                            resolve_xmlids=resolve_xmlids,
+                            initialized_fields=initialized_fields)
         if update_cache:
             self._models[model_name]._update_cache(record.id, values)
         return record
 
-    def values_list_to_records(self, model_name, val_list, update_cache=True, resolve_xmlids=True):
+    def values_list_to_records(self, model_name, val_list, update_cache=True, resolve_xmlids=True,
+                               initialized_fields=None):
+        if initialized_fields is None:
+            initialized_fields = []
         if val_list is None:
             val_list = []
         if self._legacy:
             return val_list
-        records = [self.values_to_record(model_name, values, update_cache, resolve_xmlids) for values in val_list]
+        records = [self.values_to_record(model_name, values, update_cache, resolve_xmlids,
+                                         initialized_fields=initialized_fields) for values in val_list]
         return OdooRecordSet(records, model=self.model(model_name))
 
     def get_ref(self, external_id):
@@ -369,7 +377,7 @@ class OdooConnection:
         params = [domain, fields, offset, limit, order]
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         if res and limit==1 and not self._legacy and not 'legacy' in kwargs:
-            return self.values_list_to_records(model, res)[0]
+            return self.values_list_to_records(model, res, initialized_fields=fields)[0]
         return self.values_list_to_records(model, res)
 
     def search_ids(self, model, domain=[], order="", offset=0, limit=0, context=None):

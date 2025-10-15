@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "s6r-odoo"
-version = "2.2.4"
+version = "2.2.5"
 description = "Odoo RPC client"
 readme = "README.md"
 authors = [{ name = "Michel Perrocheau", email = "michel@scalizer.fr" }]
