@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.6] - 2025-10-29
+
+### Fixed
+
+ - Fix set initialized_fields on read
+ - Fix automatic field read on accessing a field that is not initialized
+ - Improve cache handling on related fields in search
+
+#### Example 1 (without cache)
+
+```python
+   partner_ids = odoo.model('res.partner').search([], fields=['country_id', 'name'], limit=100)
+   country_codes = partner_ids.mapped('country_id.code') # code is read for each country in result
+   odoo.print_query_count()
+```
+
+    Query count : 8
+    Method Count search_read : {'res.partner': 1}
+    Method Count fields_get : {'res.partner': 1, 'res.country': 1}
+    Method Count read : {'res.country': 5}
+
+#### Example 2 (with cache)
+
+```python
+    country_ids = odoo.model('res.country').search([], fields=['code']) # Add countries in cache
+    partner_ids = odoo.model('res.partner').search([], fields=['country_id', 'name'], limit=100)
+    country_codes = partner_ids.mapped('country_id.code')
+    odoo.print_query_count()
+```
+
+    Query count : 4
+    Method Count search_read : {'res.country': 1, 'res.partner': 1}
+    Method Count fields_get : {'res.country': 1, 'res.partner': 1}
+
 ## [2.2.4] - 2025-09-25
 
 ### Fixed

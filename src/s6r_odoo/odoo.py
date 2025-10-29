@@ -357,7 +357,7 @@ class OdooConnection:
         if ids and isinstance(ids, list) and isinstance(ids[0], str):
             ids = [self.get_ref(i) for i in ids]
         res =  self._read(model, ids, fields, context)
-        return self.values_list_to_records(model, res)
+        return self.values_list_to_records(model, res, initialized_fields=fields)
 
     def read_group(self, model, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True, context=None):
         res = self.execute_odoo(model, 'read_group', [domain, fields, groupby, offset, limit, orderby, lazy],
@@ -378,7 +378,7 @@ class OdooConnection:
         res = self.execute_odoo(model, 'search_read', params, {'context': context or self._context})
         if res and limit==1 and not self._legacy and not 'legacy' in kwargs:
             return self.values_list_to_records(model, res, initialized_fields=fields)[0]
-        return self.values_list_to_records(model, res)
+        return self.values_list_to_records(model, res, initialized_fields=fields)
 
     def search_ids(self, model, domain=[], order="", offset=0, limit=0, context=None):
         params = [domain, offset, limit, order]

@@ -124,11 +124,12 @@ class OdooRecord(object):
             return super().__getattribute__(name)
         if not super().__getattribute__('_model') and name in super().__getattribute__('_values'):
             return super().__getattribute__(name)
-        if name not in self._values and self._model:
+        if name not in self._values and self._model and name != 'id':
             if not self._model._fields_loaded:
                 self._model.load_fields_description()
             if name in self._model._fields:
-                res = self.read([name])
+                self.read([name])
+                res = super().__getattribute__(name)
             else:
                 res = super().__getattribute__(name)
         else:
@@ -247,7 +248,7 @@ class OdooRecord(object):
         if not field or not field.get('relation'):
             return
         relation = field.get('relation')
-        model = OdooModel(self._odoo, relation)
+        model = self._odoo.model(relation)
         if field.get('type') == 'many2one':
             record = OdooRecord(self._odoo, model, {'id': value[0], 'name': value[1]}, field_name, self._model)
         else:
