@@ -21,6 +21,38 @@ for partner_id in partner_ids:
     print(f'{partner_id.name} : {partner_id.email}')
 ```
 
+## JSON-2 API (Odoo 19+)
+
+Starting with Odoo 19, the library uses the JSON-2 API instead of XML-RPC. The `password` parameter must be an **API key** (not a user password).
+
+```python
+from s6r_odoo import OdooConnection
+
+odoo = OdooConnection(url='https://myodoo.example.com',
+                          dbname='mydb',
+                          user='admin',
+                          password='your_api_key_here',
+                          version=19)
+```
+
+For Odoo versions < 19, the library continues to use XML-RPC with the user password as before.
+
+### Generating an API key
+
+API keys can be created from the Odoo web interface:
+**Settings > Users > Select user > API Keys tab > New API Key**
+
+### How it works
+
+| | XML-RPC (Odoo <= 18) | JSON-2 (Odoo >= 19) |
+|---|---|---|
+| Endpoint | `/xmlrpc/2/object` | `/json/2/<model>/<method>` |
+| Auth | `uid` + password per call | `Authorization: bearer <api_key>` header |
+| Database | Passed in every call | `X-Odoo-Database` header |
+| Arguments | Positional | Named (JSON body) |
+
+All existing methods (`search`, `read`, `write`, `create`, `unlink`, `load`, `fields_get`, `read_group`, etc.) work transparently with both protocols.
+
 ## Testing in local environment
 ### Setup environment
 To run the tests locally, first install pytest in your venv
@@ -44,7 +76,8 @@ env =
     ODOO_V16_PASSWORD=
     ODOO_V17_PASSWORD=
     ODOO_V18_PASSWORD=
-; You need to fill these password env variables
+    ODOO_V19_API_KEY=
+; You need to fill these password/api_key env variables
 ```
 For now, this is where we manage the passwords to access testing Odoo instances.
 

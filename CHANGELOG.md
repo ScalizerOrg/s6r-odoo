@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-04-04
+
+### Added
+
+ - JSON-2 API support for Odoo 19+
+   - When `version >= 19`, the library uses the new `/json/2/<model>/<method>` endpoint instead of XML-RPC
+   - Authentication via API key passed as the `password` parameter (Bearer token)
+   - Database selection via `X-Odoo-Database` header
+   - Automatic mapping of all ORM methods (search, read, write, create, unlink, load, fields_get, read_group, etc.) from positional args to JSON-2 named kwargs
+ - New test suites `test_json2.py` and `test_rpc.py`
+
+### Fixed
+
+ - Fix `OdooConnection.create` dict merge order that could overwrite the returned id with `None`
+
 ## [2.2.6] - 2025-10-29
 
 ### Fixed

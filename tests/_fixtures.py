@@ -25,27 +25,45 @@ auth_v18 = {
     'user':'admin',
     'password': os.environ['ODOO_V18_PASSWORD'],
 }
+auth_v19 = {
+    'url':'https://s6r-odoo-unit-test.19.demo.scalizer.fr',
+    'dbname':'s6r-odoo-unit-test.19.demo.scalizer.fr',
+    'user':'admin',
+    'password': os.environ['ODOO_V19_API_KEY'],
+    'version': 19,
+}
 
 # Base connection fixture
 @pytest.fixture
 def odoo_conn():
-    def _odoo_conn(url, dbname, user, pwd):
+    def _odoo_conn(url, dbname, user, pwd, version=18):
         logging.basicConfig()
         logger = logging.getLogger("test")
         return OdooConnection(url=url,
                                    dbname=dbname,
                                    user=user,
                                    password=pwd,
+                                   version=version,
                                    debug_xmlrpc=False,
                                    logger=logger)
     return _odoo_conn
 
-#Latest version
+#Latest version (XML-RPC)
 @pytest.fixture(params=[auth_v18], ids=['v18'])
-def odoo(odoo_conn,request):
-    return odoo_conn(*request.param.values())
+def odoo_rpc(odoo_conn,request):
+    return odoo_conn(**request.param)
 
-#3 latest versions
-@pytest.fixture(params=[auth_v16, auth_v17, auth_v18], ids=['v16', 'v17', 'v18'])
+#Latest version (JSON-2)
+@pytest.fixture(params=[auth_v19], ids=['v19'])
+def odoo_json2(odoo_conn,request):
+    return odoo_conn(**request.param)
+
+#Latest version
+@pytest.fixture(params=[auth_v19], ids=['v19'])
+def odoo(odoo_conn,request):
+    return odoo_conn(**request.param)
+
+#All versions
+@pytest.fixture(params=[auth_v16, auth_v17, auth_v18, auth_v19], ids=['v16', 'v17', 'v18', 'v19'])
 def odoo_multi_versions(odoo_conn,request):
-    return odoo_conn(*request.param.values())
+    return odoo_conn(**request.param)

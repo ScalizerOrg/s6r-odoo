@@ -116,13 +116,63 @@ class OdooConnection:
             if "already exists" not in alert.text:
                 raise Exception(alert.text)
 
+    @property
+    def _use_json2(self):
+        return self._version >= 19
+
     def _prepare_connection(self):
         self.logger.info("Prepare connection %s %s %s" % (self._url, self._dbname, self._user))
+        self.logger.info("==============")
+        if self._use_json2:
+            self._prepare_connection_json2()
+        else:
+            self._prepare_connection_xmlrpc()
+
+    def _prepare_connection_json2(self):
+        self._session = requests.Session()
+        self._session.verify = False
+        self._session.headers.update({
+            'Authorization': f'bearer {self._password}',
+            'Content-Type': 'application/json',
+        })
+        if self._dbname:
+            self._session.headers['X-Odoo-Database'] = self._dbname
+        try:
+            resp = self._session.get(f'{self._url}/web/version')
+            resp.raise_for_status()
+            version_info = resp.json()
+            self.logger.info("Connected to Odoo %s (JSON-2)", version_info.get('version', '?'))
+        except requests.RequestException as err:
+            msg = f'Connection Error to {self._url}: {err}'
+            self.logger.error(msg)
+            raise ConnectionError(msg)
+        try:
+            result = self._json2_call('res.users', 'context_get')
+            self.uid = result.get('uid') if isinstance(result, dict) else None
+        except Exception as err:
+            msg = f'Authentication Error to {self._url} {self._dbname}: {err}'
+            self.logger.error(msg)
+            raise ConnectionError(msg)
+        self.logger.debug('Connection uid : %s' % self.uid)
+
+    def _json2_call(self, model, method, **kwargs):
+        url = f'{self._url}/json/2/{model}/{method}'
+        self.logger.debug("JSON-2 POST %s %s", url, kwargs)
+        resp = self._session.post(url, json=kwargs if kwargs else {})
+        if resp.status_code == 200:
+            return resp.json()
+        try:
+            error = resp.json()
+        except ValueError:
+            error = resp.text
+        msg = f"JSON-2 error {resp.status_code} on {model}/{method}: {error}"
+        raise Exception(msg)
+
+    def _prepare_connection_xmlrpc(self):
         self.common = xmlrpc.client.ServerProxy('{}/xmlrpc/2/common'.format(self._url), allow_none=True,
                                                 context=self._insecure_context)
         self.object = xmlrpc.client.ServerProxy('{}/xmlrpc/2/object'.format(self._url), allow_none=True,
                                                 context=self._insecure_context)
-        self.logger.info("==============")
         try:
             self.uid = self.common.authenticate(self._dbname, self._user, self._password, {})
         except xmlrpc.client.Fault as err:
@@ -173,9 +223,12 @@ class OdooConnection:
         try:
             if retry:
                 self._prepare_connection()
-            res = self.object.execute_kw(self._dbname, self.uid, self._password, *args)
+            if self._use_json2:
+                res = self._execute_json2(*args)
+            else:
+                res = self.object.execute_kw(self._dbname, self.uid, self._password, *args)
             return res
-        except (ConnectionResetError, ConnectionError, xmlrpc.client.ProtocolError) as e:
+        except (ConnectionResetError, ConnectionError, requests.ConnectionError, xmlrpc.client.ProtocolError) as e:
             if not retry:
                 self.logger.info("Retry #1 to connect to Odoo...")
                 time.sleep(5)
@@ -207,6 +260,106 @@ class OdooConnection:
                     self.logger.error(e)
             if not no_raise:
                 raise e
+
+    def _execute_json2(self, *args):
+        """Translate execute_kw-style args to a JSON-2 call."""
+        model = args[0]
+        method = args[1]
+        positional = args[2] if len(args) > 2 else []
+        kw = args[3] if len(args) > 3 else {}
+
+        kwargs = dict(kw)
+        self._map_positional_args(method, positional, kwargs)
+        return self._json2_call(model, method, **kwargs)
+
+    def _map_positional_args(self, method, positional, kwargs):
+        """Map XML-RPC execute_kw positional args to JSON-2 named kwargs.
+
+        XML-RPC execute_kw passes: model, method, [positional_args], {keyword_args}
+        JSON-2 expects named kwargs matching the ORM method signature.
+        """
+        if not positional:
+            return
+
+        if method == 'search_read':
+            # search_read(domain, fields, offset, limit, order)
+            mapping = ['domain', 'fields', 'offset', 'limit', 'order']
+            for i, key in enumerate(mapping):
+                if i < len(positional) and positional[i] not in (None, [], '', 0, False):
+                    kwargs[key] = positional[i]
+        elif method == 'search':
+            # search(domain, offset, limit, order) — returns ids
+            mapping = ['domain', 'offset', 'limit', 'order']
+            for i, key in enumerate(mapping):
+                if i < len(positional) and positional[i] not in (None, [], '', 0, False):
+                    kwargs[key] = positional[i]
+        elif method == 'search_count':
+            # search_count(domain, limit=None)
+            if positional:
+                kwargs['domain'] = positional[0]
+            if len(positional) > 1 and positional[1]:
+                kwargs['limit'] = positional[1]
+        elif method == 'read':
+            # read(fields=None, load='_classic_read') — needs ids
+            if positional:
+                kwargs['ids'] = positional[0]
+            if len(positional) > 1 and positional[1]:
+                kwargs['fields'] = positional[1]
+            if len(positional) > 2 and positional[2] is not None:
+                kwargs['load'] = positional[2]
+        elif method == 'write':
+            # write(vals) — needs ids
+            if positional:
+                kwargs['ids'] = positional[0]
+            if len(positional) > 1:
+                kwargs['vals'] = positional[1]
+        elif method == 'create':
+            # create(vals_list) — @api.model
+            if positional:
+                kwargs['vals_list'] = positional[0]
+        elif method == 'unlink':
+            # unlink() — needs ids only
+            if positional:
+                ids = positional[0]
+                kwargs['ids'] = ids if isinstance(ids, list) else [ids]
+        elif method == 'fields_get':
+            # fields_get(allfields=None, attributes=None)
+            if positional:
+                kwargs['allfields'] = positional[0]
+            if len(positional) > 1 and positional[1] is not None:
+                kwargs['attributes'] = positional[1]
+        elif method == 'default_get':
+            # default_get(fields)
+            if positional:
+                kwargs['fields'] = positional[0]
+        elif method == 'load':
+            # load(fields, data) — @api.model
+            if len(positional) >= 2:
+                kwargs['fields'] = positional[0]
+                kwargs['data'] = positional[1]
+        elif method == 'read_group':
+            # read_group(domain, fields, groupby, offset, limit, orderby, lazy)
+            mapping = ['domain', 'fields', 'groupby', 'offset', 'limit', 'orderby', 'lazy']
+            for i, key in enumerate(mapping):
+                if i < len(positional):
+                    kwargs[key] = positional[i]
+        elif method in ('check_object_reference', 'get_object_reference'):
+            if positional:
+                kwargs['module'] = positional[0]
+            if len(positional) > 1:
+                kwargs['name'] = positional[1]
+        else:
+            # Generic fallback: try to pass as positional args
+            if len(positional) == 1:
+                first = positional[0]
+                if isinstance(first, list) and first and isinstance(first[0], (list, tuple)):
+                    kwargs['domain'] = first
+                elif isinstance(first, list) and first and isinstance(first[0], int):
+                    kwargs['ids'] = first
+                else:
+                    kwargs['args'] = positional
+            else:
+                kwargs['args'] = positional
 
     def values_to_record(self, model_name, values, update_cache=True, resolve_xmlids=True, initialized_fields=None):
         if initialized_fields is None:
@@ -470,7 +623,7 @@ class OdooConnection:
         res = self.execute_odoo(model, 'create', [values],  {'context': context or self._context})
         if isinstance(res, int):
             res = [res]
-        res_values = [{'id': r} | values[i] for i, r in enumerate(res)]
+        res_values = [values[i] | {'id': r} for i, r in enumerate(res)]
         return self.values_list_to_records(model, res_values)
 
     def unlink(self, model, values, context=None):
