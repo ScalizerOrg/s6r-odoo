@@ -255,7 +255,18 @@ class OdooRecord(object):
             record = self._odoo.values_list_to_records(relation, [{'id': val} for val in value])
         super().__setattr__(key, record)
 
+    @staticmethod
+    def _is_orm_commands(value):
+        """Detect ORM command lists like [[6, 0, [1, 2, 3]]] or [[4, id, 0]]."""
+        return (isinstance(value, list) and value
+                and isinstance(value[0], (list, tuple))
+                and len(value[0]) >= 2 and isinstance(value[0][0], int)
+                and value[0][0] in range(7))
+
     def _handle_relation_many2many_ids(self, field_name, value, value_type, resolve_xmlids=True):
+        if self._is_orm_commands(value):
+            super().__setattr__(field_name, value)
+            return
         if isinstance(value, str):
             value = value.split(',')
         if value_type == 'id':

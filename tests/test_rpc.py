@@ -1,4 +1,4 @@
-from _fixtures import odoo_rpc, odoo_conn  # noqa: F401
+from ._fixtures import *  # noqa: F401, F403
 
 
 def test_connection(odoo_rpc):
@@ -152,6 +152,26 @@ def test_record_save(odoo_rpc):
     rec.save()
     assert rec.id
     rec.unlink()
+
+
+def test_create_with_orm_commands(odoo_rpc):
+    """Create a record with many2many ORM commands like [[6, 0, [ids]]]."""
+    tag1 = odoo_rpc.create('res.partner.category', {'name': 'ORM Cmd Tag 1'})
+    tag2 = odoo_rpc.create('res.partner.category', {'name': 'ORM Cmd Tag 2'})
+    tag_ids = [tag1[0].id, tag2[0].id]
+
+    partner = odoo_rpc.create('res.partner', {
+        'name': 'ORM Commands Test',
+        'category_id': [[6, 0, tag_ids]],
+    })
+    rec = partner[0]
+    assert rec.id
+
+    read_partner = odoo_rpc.model('res.partner').read(rec.id, fields=['category_id'], no_cache=True)
+    assert len(read_partner.category_id) == 2
+
+    odoo_rpc.unlink('res.partner', [rec.id])
+    odoo_rpc.unlink('res.partner.category', tag_ids)
 
 
 def test_default_get(odoo_rpc):

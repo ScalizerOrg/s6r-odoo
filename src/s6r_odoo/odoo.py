@@ -138,10 +138,11 @@ class OdooConnection:
         if self._dbname:
             self._session.headers['X-Odoo-Database'] = self._dbname
         try:
-            resp = self._session.get(f'{self._url}/web/version')
+            resp = self._session.post(f'{self._url}/web/webclient/version_info',
+                                      json={'jsonrpc': '2.0', 'method': 'call', 'params': {}})
             resp.raise_for_status()
-            version_info = resp.json()
-            self.logger.info("Connected to Odoo %s (JSON-2)", version_info.get('version', '?'))
+            version_info = resp.json().get('result', {})
+            self.logger.info("Connected to Odoo %s (JSON-2)", version_info.get('server_version', '?'))
         except requests.RequestException as err:
             msg = f'Connection Error to {self._url}: {err}'
             self.logger.error(msg)
@@ -159,6 +160,12 @@ class OdooConnection:
         url = f'{self._url}/json/2/{model}/{method}'
         self.logger.debug("JSON-2 POST %s %s", url, kwargs)
         resp = self._session.post(url, json=kwargs if kwargs else {})
+        content_type = resp.headers.get('Content-Type', '')
+        if 'application/json' not in content_type:
+            raise Exception(
+                f"JSON-2 endpoint returned non-JSON response ({content_type}). "
+                f"Is the 'rpc' module installed on this Odoo instance?"
+            )
         if resp.status_code == 200:
             return resp.json()
         try:

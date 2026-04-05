@@ -1,4 +1,4 @@
-from _fixtures import odoo_json2, odoo_conn  # noqa: F401
+from ._fixtures import *  # noqa: F401, F403
 
 
 def test_connection(odoo_json2):
@@ -152,6 +152,30 @@ def test_record_save(odoo_json2):
     rec.save()
     assert rec.id
     rec.unlink()
+
+
+def test_create_with_orm_commands(odoo_json2):
+    """Create a record with many2many ORM commands like [[6, 0, [ids]]]."""
+    # Create two tags first
+    tag1 = odoo_json2.create('res.partner.category', {'name': 'ORM Cmd Tag 1'})
+    tag2 = odoo_json2.create('res.partner.category', {'name': 'ORM Cmd Tag 2'})
+    tag_ids = [tag1[0].id, tag2[0].id]
+
+    # Create partner with many2many ORM command
+    partner = odoo_json2.create('res.partner', {
+        'name': 'ORM Commands Test',
+        'category_id': [[6, 0, tag_ids]],
+    })
+    rec = partner[0]
+    assert rec.id
+
+    # Verify tags were assigned
+    read_partner = odoo_json2.model('res.partner').read(rec.id, fields=['category_id'], no_cache=True)
+    assert len(read_partner.category_id) == 2
+
+    # Cleanup
+    odoo_json2.unlink('res.partner', [rec.id])
+    odoo_json2.unlink('res.partner.category', tag_ids)
 
 
 def test_default_get(odoo_json2):

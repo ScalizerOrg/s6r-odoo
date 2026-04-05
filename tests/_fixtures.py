@@ -11,41 +11,38 @@ auth_v16 = {
     'url':'https://s6r-odoo-unit-test.16.demo.scalizer.fr',
     'dbname':'s6r-odoo-unit-test.16.demo.scalizer.fr',
     'user':'admin',
-    'password':os.environ['ODOO_V16_PASSWORD'],
+    'password':os.environ.get('ODOO_V16_PASSWORD', ''),
 }
 auth_v17 = {
     'url':'https://s6r-odoo-unit-test.17.demo.scalizer.fr',
     'dbname':'s6r-odoo-unit-test.17.demo.scalizer.fr',
     'user':'admin',
-    'password': os.environ['ODOO_V17_PASSWORD'],
+    'password': os.environ.get('ODOO_V17_PASSWORD', ''),
 }
 auth_v18 = {
     'url':'https://s6r-odoo-unit-test.18.demo.scalizer.fr',
     'dbname':'s6r-odoo-unit-test.18.demo.scalizer.fr',
     'user':'admin',
-    'password': os.environ['ODOO_V18_PASSWORD'],
+    'password': os.environ.get('ODOO_V18_PASSWORD', ''),
 }
 auth_v19 = {
     'url':'https://s6r-odoo-unit-test.19.demo.scalizer.fr',
     'dbname':'s6r-odoo-unit-test.19.demo.scalizer.fr',
     'user':'admin',
-    'password': os.environ['ODOO_V19_API_KEY'],
+    'password': os.environ.get('ODOO_V19_API_KEY', ''),
     'version': 19,
 }
 
 # Base connection fixture
 @pytest.fixture
 def odoo_conn():
-    def _odoo_conn(url, dbname, user, pwd, version=18):
+    def _odoo_conn(**kwargs):
         logging.basicConfig()
         logger = logging.getLogger("test")
-        return OdooConnection(url=url,
-                                   dbname=dbname,
-                                   user=user,
-                                   password=pwd,
-                                   version=version,
-                                   debug_xmlrpc=False,
-                                   logger=logger)
+        kwargs.setdefault('version', 18)
+        kwargs.setdefault('debug_xmlrpc', False)
+        kwargs['logger'] = logger
+        return OdooConnection(**kwargs)
     return _odoo_conn
 
 #Latest version (XML-RPC)
