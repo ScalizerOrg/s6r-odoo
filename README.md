@@ -37,6 +37,14 @@ odoo = OdooConnection(url='https://myodoo.example.com',
 
 For Odoo versions < 19, the library continues to use XML-RPC with the user password as before.
 
+### Requirements
+
+The JSON-2 endpoint is provided by the Odoo `rpc` module (installed automatically, as an `auto_install`
+module depending on `base`). It must be installed in the target database: if it has been uninstalled,
+the library raises an explicit error. It does not need to be loaded as a server-wide module, since the
+database is selected with the `X-Odoo-Database` header. XML-RPC, on the contrary, requires `rpc` in
+`server_wide_modules` when the database cannot be determined from the hostname (`dbfilter`).
+
 ### Generating an API key
 
 API keys can be created from the Odoo web interface:
@@ -52,6 +60,17 @@ API keys can be created from the Odoo web interface:
 | Arguments | Positional | Named (JSON body) |
 
 All existing methods (`search`, `read`, `write`, `create`, `unlink`, `load`, `fields_get`, `read_group`, etc.) work transparently with both protocols.
+
+Other methods are called with `execute()`. With JSON-2, their arguments must be passed as **keyword arguments**,
+the record ids with `ids=` (this syntax also works with XML-RPC):
+
+```python
+partners = odoo.model('res.partner')
+partners.execute('name_search', name='Azure', limit=5)
+partners.execute('copy', ids=[42], default={'name': 'Copy'})
+```
+
+HTTP basic authentication (`http_user` / `http_password`) is not supported with JSON-2: both use the `Authorization` header.
 
 ## Testing in local environment
 ### Setup environment

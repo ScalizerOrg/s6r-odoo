@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-11-23
+
+### Added
+
+ - `OdooModel.execute()` accepts `ids=` and keyword arguments, required to call generic methods with JSON-2
+
+### Fixed
+
+ - JSON-2: `search` with an empty domain failed with a 422 error (`missing a required argument: 'domain'`)
+ - JSON-2: generic methods called through `execute()` with positional arguments were sent as an invalid `args` argument (422); an explicit error now asks for keyword arguments
+ - JSON-2: an explicit error is raised when `http_user` / `http_password` are set, HTTP basic auth overriding the bearer API key
+
 ## [2.3.0] - 2026-04-04
 
 ### Added

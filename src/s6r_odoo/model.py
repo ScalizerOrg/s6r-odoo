@@ -46,8 +46,20 @@ class OdooModel(object):
         if record_id in self._cache:
             return self.values_to_record(self._cache.get(record_id), update_cache=False)
 
-    def execute(self, model_method,  *args, no_raise=False):
-        return self._odoo.execute_odoo(self.model_name, model_method, args, no_raise=no_raise)
+    def execute(self, model_method, *args, ids=None, no_raise=False, **kwargs):
+        """Call any public method of the model.
+
+        :param model_method: name of the method to call
+        :param args: positional arguments (XML-RPC style); with JSON-2 (Odoo 19+), only the methods
+            known by the library can map them, others must use keyword arguments
+        :param ids: ids of the records the method is called on
+        :param no_raise: do not raise on error
+        :param kwargs: keyword arguments passed as is to the method
+        """
+        positional = list(args)
+        if ids is not None:
+            positional.insert(0, ids if isinstance(ids, list) else [ids])
+        return self._odoo.execute_odoo(self.model_name, model_method, positional, kwargs, no_raise=no_raise)
 
     def search_get_id(self, domain):
         return self._odoo.get_search_id(self.model_name, domain)

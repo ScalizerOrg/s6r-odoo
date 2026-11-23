@@ -188,3 +188,40 @@ def test_read_group(odoo_json2):
         'res.partner', [('is_company', '=', True)],
         ['country_id'], ['country_id'], limit=5)
     assert isinstance(result, list)
+
+
+def test_search_ids_empty_domain(odoo_json2):
+    ids = odoo_json2.search_ids('res.partner', [], limit=1)
+    assert len(ids) == 1
+
+
+def test_execute_kwargs(odoo_json2):
+    res = odoo_json2.model('res.partner').execute('name_search', name='a', limit=1)
+    assert isinstance(res, list)
+
+
+def test_execute_ids_only(odoo_json2):
+    partner_id = odoo_json2.search_ids('res.partner', [('id', '>', 0)], limit=1)[0]
+    res = odoo_json2.model('res.partner').execute('get_formview_id', ids=[partner_id])
+    assert res is False or isinstance(res, int)
+
+
+def test_execute_ids_and_kwargs(odoo_json2):
+    tag = odoo_json2.create('res.partner.category', {'name': 'JSON2 Execute Copy Source'})[0]
+    copy_ids = odoo_json2.model('res.partner.category').execute(
+        'copy', ids=[tag.id], default={'name': 'JSON2 Execute Copy Target'})
+    assert len(copy_ids) == 1
+    copy = odoo_json2.model('res.partner.category').read(copy_ids[0], fields=['name'], no_cache=True)
+    assert copy.name == 'JSON2 Execute Copy Target'
+    odoo_json2.unlink('res.partner.category', [tag.id] + copy_ids)
+
+
+def test_execute_unmappable_positional_args(odoo_json2):
+    with pytest.raises(ValueError, match='keyword arguments'):
+        odoo_json2.model('res.partner').execute('name_search', 'a', no_raise=False)
+
+
+def test_http_basic_auth_not_supported():
+    with pytest.raises(ValueError, match='HTTP basic authentication'):
+        OdooConnection(url='https://example.com', dbname='db', user='admin', password='key', version=19,
+                       http_user='user', http_password='pwd')

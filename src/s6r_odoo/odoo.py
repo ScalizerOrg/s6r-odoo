@@ -47,6 +47,10 @@ class OdooConnection:
         self._context = {'lang': kwargs.get('lang') or 'fr_FR', 'noupdate': True}
         # noinspection PyProtectedMember,PyUnresolvedReferences
         self._insecure_context = ssl._create_unverified_context()
+        if self._use_json2 and (http_user or http_password):
+            # Both HTTP basic auth and JSON-2 bearer auth use the Authorization header
+            raise ValueError("HTTP basic authentication (http_user/http_password) is not compatible with the "
+                             "JSON-2 API (Odoo 19+), which uses the Authorization header for the API key.")
         self._compute_url()
         if createdb:
             self._create_db()
@@ -288,16 +292,16 @@ class OdooConnection:
         if not positional:
             return
 
-        if method == 'search_read':
+        if method in ('search_read', 'search'):
             # search_read(domain, fields, offset, limit, order)
-            mapping = ['domain', 'fields', 'offset', 'limit', 'order']
-            for i, key in enumerate(mapping):
-                if i < len(positional) and positional[i] not in (None, [], '', 0, False):
-                    kwargs[key] = positional[i]
-        elif method == 'search':
             # search(domain, offset, limit, order) — returns ids
-            mapping = ['domain', 'offset', 'limit', 'order']
-            for i, key in enumerate(mapping):
+            if method == 'search_read':
+                mapping = ['domain', 'fields', 'offset', 'limit', 'order']
+            else:
+                mapping = ['domain', 'offset', 'limit', 'order']
+            # domain is a required argument of search: an empty domain must be sent
+            kwargs['domain'] = positional[0] or []
+            for i, key in enumerate(mapping[1:], start=1):
                 if i < len(positional) and positional[i] not in (None, [], '', 0, False):
                     kwargs[key] = positional[i]
         elif method == 'search_count':
@@ -356,17 +360,17 @@ class OdooConnection:
             if len(positional) > 1:
                 kwargs['name'] = positional[1]
         else:
-            # Generic fallback: try to pass as positional args
-            if len(positional) == 1:
-                first = positional[0]
-                if isinstance(first, list) and first and isinstance(first[0], (list, tuple)):
-                    kwargs['domain'] = first
-                elif isinstance(first, list) and first and isinstance(first[0], int):
-                    kwargs['ids'] = first
-                else:
-                    kwargs['args'] = positional
+            # Generic method: JSON-2 only accepts named arguments. As in XML-RPC, the first positional
+            # argument can be the record ids; any other positional argument cannot be mapped.
+            first = positional[0]
+            if len(positional) == 1 and isinstance(first, list) and all(isinstance(i, int) for i in first):
+                kwargs['ids'] = first
             else:
-                kwargs['args'] = positional
+                raise ValueError(
+                    f"JSON-2 cannot map positional arguments {positional!r} of method '{method}': "
+                    f"use keyword arguments instead, "
+                    f"e.g. model.execute('{method}', ids=[...], arg_name=value)"
+                )
 
     def values_to_record(self, model_name, values, update_cache=True, resolve_xmlids=True, initialized_fields=None):
         if initialized_fields is None:

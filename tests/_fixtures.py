@@ -26,8 +26,8 @@ auth_v18 = {
     'password': os.environ.get('ODOO_V18_PASSWORD', ''),
 }
 auth_v19 = {
-    'url':'https://s6r-odoo-unit-test.19.demo.scalizer.fr',
-    'dbname':'s6r-odoo-unit-test.19.demo.scalizer.fr',
+    'url': os.environ.get('ODOO_V19_URL', 'https://s6r-odoo-unit-test.19.demo.scalizer.fr'),
+    'dbname': os.environ.get('ODOO_V19_DB', 's6r-odoo-unit-test.19.demo.scalizer.fr'),
     'user':'admin',
     'password': os.environ.get('ODOO_V19_API_KEY', ''),
     'version': 19,
